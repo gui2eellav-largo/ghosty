@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test-rust:
+    name: Tests Rust
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      
+      - name: Run tests
+        working-directory: src-tauri
+        run: cargo test --verbose
+      
+      - name: Run Clippy
+        working-directory: src-tauri
+        run: cargo clippy -- -D warnings
+
+  test-frontend:
+    name: Tests Frontend
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint || true
+      
+      - name: Build
+        run: npm run build
+
+  security:
+    name: Vérification sécurité
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check .env in .gitignore
+        run: |
+          if ! grep -q "^\.env$" .gitignore; then
+            echo "❌ .env manquant dans .gitignore"
+            exit 1
+          fi
+          echo "✅ .env dans .gitignore"
+      
+      - name: Scan for hardcoded secrets
+        run: |
+          if git grep -i "sk-proj-" -- '*.rs' '*.ts' '*.tsx' | grep -v "placeholder" | grep -v "example"; then
+            echo "❌ Secrets potentiels trouvés"
+            exit 1
+          fi
+          echo "✅ Pas de secrets hardcodés"
+      
+      - name: Rust security audit
+        working-directory: src-tauri
+        run: |
+          cargo install cargo-audit
+          cargo audit
+
+  build-tauri:
+    name: Build Tauri (macOS)
+    runs-on: macos-latest
+    needs: [test-rust, test-frontend, security]
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build Tauri app
+        run: npm run tauri:build
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghosty-macos
+          path: src-tauri/target/release/bundle/
+
+  coverage:
+    name: Code Coverage
+    runs-on: macos-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+      
+      - name: Generate coverage
+        working-directory: src-tauri
+        run: cargo tarpaulin --out Xml
+      
+      - name: Upload to codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./src-tauri/cobertura.xml
+          flags: rust

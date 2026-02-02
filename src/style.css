@@ -1,0 +1,204 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(240 10% 3.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(240 10% 3.9%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(240 10% 3.9%);
+  --color-primary: hsl(240 5.9% 10%);
+  --color-primary-foreground: hsl(0 0% 98%);
+  --color-secondary: hsl(240 4.8% 95.9%);
+  --color-secondary-foreground: hsl(240 5.9% 10%);
+  --color-muted: hsl(240 4.8% 95.9%);
+  --color-muted-foreground: hsl(240 3.8% 46.1%);
+  --color-accent: hsl(240 4.8% 95.9%);
+  --color-accent-foreground: hsl(240 5.9% 10%);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(240 5.9% 90%);
+  --color-input: hsl(240 5.9% 90%);
+  --color-ring: hsl(240 5.9% 10%);
+  --radius-lg: 0.75rem;
+  --radius-md: calc(0.75rem - 2px);
+  --radius-sm: calc(0.75rem - 4px);
+}
+
+.dark {
+  --color-background: #0c0c0c;
+  --color-foreground: hsl(0 0% 98%);
+  --color-card: #141414;
+  --color-card-foreground: hsl(0 0% 98%);
+  --color-popover: #141414;
+  --color-popover-foreground: hsl(0 0% 98%);
+  --color-primary: hsl(0 0% 98%);
+  --color-primary-foreground: hsl(240 5.9% 10%);
+  --color-secondary: #1a1a1a;
+  --color-secondary-foreground: hsl(0 0% 98%);
+  --color-muted: #1a1a1a;
+  --color-muted-foreground: hsl(240 5% 70%);
+  --color-accent: #1a1a1a;
+  --color-accent-foreground: hsl(0 0% 98%);
+  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: #222;
+  --color-input: #222;
+  --color-ring: hsl(240 4.9% 83.9%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+  }
+}
+
+/* Floating window overrides */
+html.floating-window,
+html.floating-window body,
+html.floating-window body #app {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  user-select: none !important;
+  overscroll-behavior: none !important;
+  touch-action: none !important;
+}
+
+.floating-bar-container {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 0;
+  height: 100%;
+  width: 100%;
+  pointer-events: none;
+  background: transparent !important;
+  overflow: visible !important;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+.floating-bar-container > * {
+  pointer-events: auto;
+}
+
+@keyframes pulse-red {
+  0% {
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0.95);
+  }
+}
+
+.animate-pulse-red {
+  animation: pulse-red 2s infinite;
+}
+
+/* Spring animations for floating widget */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes check-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-success {
+  0% {
+    background-color: rgba(0, 0, 0, 0.4);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
+  }
+  50% {
+    background-color: rgba(52, 211, 153, 0.3);
+    transform: scale(1.05);
+    box-shadow: 0 0 20px 10px rgba(52, 211, 153, 0);
+  }
+  100% {
+    background-color: rgba(0, 0, 0, 0.4);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+}
+
+.animate-pulse-success {
+  animation: pulse-success 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.animate-breathe {
+  animation: breathe 2s ease-in-out infinite;
+}
+
+.animate-check-pop {
+  animation: check-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Top 1% Organic spring easing with overshoot */
+.transition-spring {
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.transition-elastic {
+  transition-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* Waveform bars smooth transition */
+.waveform-bar {
+  transition: height 0.1s ease-out;
+}
+
