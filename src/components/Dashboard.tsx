@@ -735,8 +735,8 @@ export default function Dashboard() {
 
     switch (provider) {
       case "openai":
-        if (!key.startsWith("sk-") && !key.startsWith("sk-proj-")) {
-          return "OpenAI key must start with 'sk-' or 'sk-proj-'";
+        if (!key.startsWith("sk-") && !key.startsWith("sk-proj-")) { // example format check
+          return "OpenAI key must start with 'sk-' or 'sk-proj-'"; // example message
         }
         if (key.length < 40) {
           return "OpenAI key too short: minimum 40 characters";

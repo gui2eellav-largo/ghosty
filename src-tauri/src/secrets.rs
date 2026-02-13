@@ -45,8 +45,8 @@ fn validate_api_key(key: &str, provider: &str) -> Result<(), String> {
 
 /// Validation OpenAI
 fn validate_openai_key(key: &str) -> Result<(), String> {
-    if !key.starts_with("sk-") && !key.starts_with("sk-proj-") {
-        return Err("Format OpenAI invalide: doit commencer par 'sk-' ou 'sk-proj-'".to_string());
+    if !key.starts_with("sk-") && !key.starts_with("sk-proj-") { // example prefixes
+        return Err("Format OpenAI invalide: doit commencer par 'sk-' ou 'sk-proj-'".to_string()); // example format
     }
 
     if key.len() < 40 {
@@ -443,7 +443,7 @@ mod tests {
     fn test_validate_openai_key_valid() {
         assert!(validate_openai_key("sk-1234567890abcdefghijklmnopqrstuvwxyz1234567890").is_ok());
         assert!(
-            validate_openai_key("sk-proj-1234567890abcdefghijklmnopqrstuvwxyz1234567890").is_ok()
+            validate_openai_key("sk-proj-1234567890abcdefghijklmnopqrstuvwxyz1234567890").is_ok() // example key
         );
     }
 
@@ -553,7 +553,7 @@ mod tests {
     #[test]
     fn test_validate_api_key_router() {
         // OpenAI
-        assert!(validate_api_key("sk-proj-1234567890abcdefghijklmnopqrstuvwxyz", "openai").is_ok());
+        assert!(validate_api_key("sk-proj-1234567890abcdefghijklmnopqrstuvwxyz", "openai").is_ok()); // example key
 
         // Anthropic
         assert!(
