@@ -5,7 +5,7 @@ use tauri::Manager;
 
 const PREFERENCES_FILENAME: &str = "preferences.json";
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Preferences {
     #[serde(default)]
@@ -175,37 +175,13 @@ impl Default for AppearancePrefs {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AdvancedPrefs {
     #[serde(default)]
     pub transcription_base_url: Option<String>,
     #[serde(default)]
     pub llm_base_url: Option<String>,
-}
-
-impl Default for AdvancedPrefs {
-    fn default() -> Self {
-        Self {
-            transcription_base_url: None,
-            llm_base_url: None,
-        }
-    }
-}
-
-impl Default for Preferences {
-    fn default() -> Self {
-        Self {
-            general: GeneralPrefs::default(),
-            shortcut: ShortcutPrefs::default(),
-            recording: RecordingPrefs::default(),
-            transcription: TranscriptionPrefs::default(),
-            llm: LlmPrefs::default(),
-            behavior: BehaviorPrefs::default(),
-            appearance: AppearancePrefs::default(),
-            advanced: AdvancedPrefs::default(),
-        }
-    }
 }
 
 fn preferences_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {

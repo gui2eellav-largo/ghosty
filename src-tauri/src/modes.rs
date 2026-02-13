@@ -313,7 +313,7 @@ pub fn get_all_modes(app: &tauri::AppHandle) -> Result<Vec<ModeConfig>, String> 
     modes.sort_by_key(|m| m.order);
     let first_enabled_id = modes.iter().find(|m| m.enabled).map(|m| m.id.clone());
     for m in &mut modes {
-        m.is_default = first_enabled_id.as_ref().map_or(false, |id| m.id == *id);
+        m.is_default = first_enabled_id.as_ref().is_some_and(|id| m.id == *id);
     }
     Ok(modes)
 }

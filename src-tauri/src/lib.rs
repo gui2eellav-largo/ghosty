@@ -247,7 +247,7 @@ pub async fn run_transform_selection(app: tauri::AppHandle, mode_id: String) -> 
     };
     let full = result.map_err(|e| e.to_string())?;
     let output = if full.contains("---REFLECTION---") {
-        full.splitn(2, "---REFLECTION---")
+        full.split("---REFLECTION---")
             .next()
             .unwrap_or("")
             .trim()
@@ -895,7 +895,7 @@ pub fn run() {
                 use tauri_plugin_autostart::ManagerExt;
                 use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
-                let configs = shortcuts::get_all_shortcuts(&app.handle()).unwrap_or_else(|_| shortcuts::default_shortcuts());
+                let configs = shortcuts::get_all_shortcuts(app.handle()).unwrap_or_else(|_| shortcuts::default_shortcuts());
                 let mut mapping = HashMap::new();
                 let mut to_register = Vec::new();
                 for c in configs {
@@ -918,7 +918,7 @@ pub fn run() {
                     tauri_plugin_autostart::MacosLauncher::LaunchAgent,
                     None,
                 ));
-                if let Ok(prefs) = preferences::get_preferences(&app.handle()) {
+                if let Ok(prefs) = preferences::get_preferences(app.handle()) {
                     let mgr = app.handle().autolaunch();
                     if prefs.general.launch_at_login {
                         let _ = mgr.enable();
@@ -932,7 +932,7 @@ pub fn run() {
                     use tauri::menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu};
                     use tauri::tray::TrayIconBuilder;
 
-                    let prefs = preferences::get_preferences(&app.handle()).unwrap_or_default();
+                    let prefs = preferences::get_preferences(app.handle()).unwrap_or_default();
                     let current_mic = prefs.recording.input_device_id.as_deref();
                     let current_lang = prefs.transcription.language.as_deref();
 
@@ -959,7 +959,7 @@ pub fn run() {
                             let checked = current_mic.map(|id| d.id.as_str() == id).unwrap_or(false);
                             CheckMenuItem::with_id(
                                 app,
-                                &format!("tray_mic_{}", i),
+                                format!("tray_mic_{}", i),
                                 &d.name,
                                 true,
                                 checked,

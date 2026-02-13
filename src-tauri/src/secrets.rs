@@ -244,7 +244,7 @@ pub fn add_api_key(name: String, provider: String, key: String) -> Result<String
     let mut config = get_keys_config()?;
 
     // Générer ID unique
-    let id = format!("key_{}", uuid::Uuid::new_v4().to_string());
+    let id = format!("key_{}", uuid::Uuid::new_v4());
 
     // Ajouter nouvelle clé
     config.keys.push(ApiKeyEntry {

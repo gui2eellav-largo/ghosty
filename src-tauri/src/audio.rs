@@ -227,7 +227,9 @@ async fn run_pipeline(
 }
 
 fn clear_pipeline_cancel(app: &tauri::AppHandle) {
-    app.try_state::<crate::PipelineCancel>().map(|s| s.clear());
+    if let Some(s) = app.try_state::<crate::PipelineCancel>() {
+        s.clear()
+    }
 }
 
 fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
@@ -416,7 +418,7 @@ pub fn write_wav_to_bytes(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, 
         .map_err(|e| e.to_string())?; // WAVE_FORMAT_IEEE_FLOAT
     buf.write_all(&1u16.to_le_bytes())
         .map_err(|e| e.to_string())?;
-    buf.write_all(&(sample_rate as u32).to_le_bytes())
+    buf.write_all(&sample_rate.to_le_bytes())
         .map_err(|e| e.to_string())?;
     buf.write_all(&(sample_rate * 4).to_le_bytes())
         .map_err(|e| e.to_string())?;

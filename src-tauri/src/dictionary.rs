@@ -17,17 +17,9 @@ pub struct DictionaryEntry {
     pub created_at: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 struct DictionaryStore {
     entries: Vec<DictionaryEntry>,
-}
-
-impl Default for DictionaryStore {
-    fn default() -> Self {
-        Self {
-            entries: Vec::new(),
-        }
-    }
 }
 
 fn get_dictionary_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
