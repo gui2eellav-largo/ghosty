@@ -350,7 +350,7 @@ fn set_floating_window_bounds(
 ) -> Result<(), String> {
     use tauri::{LogicalPosition, LogicalSize};
     #[cfg(debug_assertions)]
-    write_menu_bounds_log(&format!(
+    write_menu_bounds_log(format!(
         "RUST set_floating_window_bounds ENTER x={} y={} width={} height={}",
         x, y, width, height
     ));
@@ -456,7 +456,7 @@ fn menu_bounds_log_path() -> std::path::PathBuf {
 }
 
 #[cfg(debug_assertions)]
-fn write_menu_bounds_log(msg: &str) {
+fn write_menu_bounds_log(msg: impl AsRef<str>) {
     let path = menu_bounds_log_path();
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
@@ -465,7 +465,7 @@ fn write_menu_bounds_log(msg: &str) {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis().to_string())
         .unwrap_or_else(|_| "?".to_string());
-    let line = format!("{} {}\n", ts, msg);
+    let line = format!("{} {}\n", ts, msg.as_ref());
     let _ = std::fs::OpenOptions::new()
         .create(true)
         .append(true)

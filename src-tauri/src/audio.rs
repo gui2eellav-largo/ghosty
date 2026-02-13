@@ -171,10 +171,10 @@ async fn run_pipeline(
     };
 
     let payload = if final_text.contains("---REFLECTION---") {
-        let parts: Vec<&str> = final_text.splitn(2, "---REFLECTION---").collect();
-        let output = parts[0].trim().to_string();
+        let mut parts = final_text.split("---REFLECTION---");
+        let output = parts.next().unwrap_or("").trim().to_string();
         let thoughts = parts
-            .get(1)
+            .next()
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
         TranscriptionReadyPayload {

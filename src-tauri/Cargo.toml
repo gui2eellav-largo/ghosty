@@ -40,6 +40,9 @@ tauri-plugin-notification = "2"
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "2.9"
 
+[patch.crates-io]
+bytes = { version = "1.11.1" }  # RUSTSEC-2026-0007
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
