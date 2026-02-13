@@ -183,6 +183,7 @@ export default function Dashboard() {
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- modeRowMenuRef/setModeRowMenuOpen stable, avoid re-run on ref
   }, [modeRowMenuOpen]);
 
   // Attach wheel event to mode selector button
@@ -217,6 +218,7 @@ export default function Dashboard() {
     return () => {
       button.removeEventListener('wheel', handleWheel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelectedMode stable from useModes
   }, [selectedMode, modes]);
 
   const DROPDOWN_WIDTH = 280;
@@ -280,6 +282,7 @@ export default function Dashboard() {
     loadModes();
     loadShortcuts();
     loadDictionaryEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   useEffect(() => {
@@ -408,7 +411,7 @@ export default function Dashboard() {
     }
     try {
       await api.shortcuts.checkAvailable(newKeys);
-    } catch (err) {
+    } catch {
       setShortcutError(
         "Shortcut reserved by macOS or another app. Try Ctrl+Shift+Space or another combination."
       );
@@ -542,7 +545,7 @@ export default function Dashboard() {
         isActive
       })));
       setHasApiKey(keys.length > 0);
-    } catch (error) {
+    } catch {
       // Fallback : ancienne méthode
       try {
         const hasKey = await api.apiKeys.hasKey();
@@ -604,6 +607,7 @@ export default function Dashboard() {
       safeUnlisten(unlistenError);
       safeUnlisten(unlistenActivateMode);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSelectedMode stable, run once
   }, []);
 
   useEffect(() => {
@@ -888,9 +892,10 @@ export default function Dashboard() {
   useEffect(() => {
     void _handleDeleteShortcut; void _handleToggleShortcut; void _handleApiKeyChange; void _handleProviderChange;
     void _handleSaveApiKey; void _handleDeleteApiKey; void _handleSetActiveKey; void _handleResetUsage;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional empty deps, handlers refs
   }, []);
 
-  const NavItem = ({ id, label, icon: Icon }: { id: View, label: string, icon: any }) => (
+  const NavItem = ({ id, label, icon: Icon }: { id: View; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }) => (
     <button 
       onClick={() => setActiveView(id)}
       className={cn(
@@ -1340,7 +1345,6 @@ export default function Dashboard() {
                               }}
                               placeholder="Variants (a, b, c)"
                               className={cn(uiClasses.input, "text-xs py-2")}
-                              autoFocus
                             />
                           ) : (
                             <button
@@ -1874,13 +1878,19 @@ export default function Dashboard() {
                 <div
                   className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70 p-4"
                   onClick={() => setShowImportModesModal(false)}
-                  role="dialog"
-                  aria-modal="true"
-                  aria-labelledby="import-modes-title"
+                  onKeyDown={(e) => e.key === "Escape" && setShowImportModesModal(false)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Close modal"
                 >
+                  {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- dialog content, stopPropagation only */}
                   <div
                     className="bg-white dark:bg-[#0c0c0c] border border-black/[0.06] dark:border-white/[0.06] rounded-lg shadow-md w-full max-w-lg max-h-[80vh] flex flex-col"
                     onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="import-modes-title"
                   >
                     <div className="px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.06]">
                       <h2 id="import-modes-title" className="text-lg font-bold text-black dark:text-white">Import modes</h2>
@@ -2121,9 +2131,9 @@ export default function Dashboard() {
                     <p className="text-xs text-muted-foreground mt-1">Used in the welcome message and profile.</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black dark:text-white mb-1.5">
+                    <span className="block text-sm font-medium text-black dark:text-white mb-1.5">
                       Email
-                    </label>
+                    </span>
                     <div className="px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm text-muted-foreground">
                       Connect your account to unlock
                     </div>
@@ -2402,8 +2412,9 @@ export default function Dashboard() {
                                 ))
                               )}
                             </div>
-                            <label className="flex items-center gap-2 cursor-pointer" title="Enable or disable this shortcut">
+                            <label htmlFor={`shortcut-enabled-${s.id}`} className="flex items-center gap-2 cursor-pointer" title="Enable or disable this shortcut">
                               <input
+                                id={`shortcut-enabled-${s.id}`}
                                 type="checkbox"
                                 checked={s.enabled}
                                 onChange={async () => {
@@ -2454,10 +2465,11 @@ export default function Dashboard() {
               >
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-black dark:text-white mb-2">
+                    <label htmlFor="settings-input-device" className="block text-sm font-medium text-black dark:text-white mb-2">
                       Input device
                     </label>
                     <select
+                      id="settings-input-device"
                       value={preferences?.recording?.inputDeviceId ?? ""}
                       onChange={async (e) => {
                         const v = e.target.value;
@@ -2482,10 +2494,11 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black dark:text-white mb-2">
+                    <label htmlFor="settings-max-duration" className="block text-sm font-medium text-black dark:text-white mb-2">
                       Max duration (minutes)
                     </label>
                     <select
+                      id="settings-max-duration"
                       value={preferences?.recording.maxDurationMinutes ?? 5}
                       onChange={async (e) => {
                         const v = parseInt(e.target.value);
@@ -2512,10 +2525,11 @@ export default function Dashboard() {
                     <h3 className="text-sm font-semibold text-black dark:text-white mb-3">Transcription (voice → text)</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-black dark:text-white mb-2">
+                        <label htmlFor="settings-transcription-language" className="block text-sm font-medium text-black dark:text-white mb-2">
                           Default language
                         </label>
                         <select
+                          id="settings-transcription-language"
                           value={preferences?.transcription.language ?? ""}
                           onChange={async (e) => {
                             const v = e.target.value;
@@ -2539,10 +2553,11 @@ export default function Dashboard() {
                         </p>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black dark:text-white mb-2">
+                        <label htmlFor="settings-transcription-model" className="block text-sm font-medium text-black dark:text-white mb-2">
                           Model
                         </label>
                         <select
+                          id="settings-transcription-model"
                           value={preferences?.transcription.model ?? "whisper-1"}
                           onChange={async (e) => {
                             await updatePreferences({ transcription: { ...preferences?.transcription, model: e.target.value } });
@@ -2558,10 +2573,11 @@ export default function Dashboard() {
                     <h3 className="text-sm font-semibold text-black dark:text-white mb-3">Text generation (LLM)</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-black dark:text-white mb-2">
+                        <label htmlFor="settings-llm-model" className="block text-sm font-medium text-black dark:text-white mb-2">
                           Model
                         </label>
                         <select
+                          id="settings-llm-model"
                           value={preferences?.llm.model ?? "gpt-4o-mini"}
                           onChange={async (e) => {
                             await updatePreferences({ llm: { ...preferences?.llm, model: e.target.value } });

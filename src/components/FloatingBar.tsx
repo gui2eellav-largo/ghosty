@@ -447,8 +447,11 @@ export default function FloatingBar() {
               transition: "transform 200ms ease-out",
             }}
           >
-            <div 
+            <div
+              role="button"
+              tabIndex={isHoverOrActive ? 0 : -1}
               onClick={isHoverOrActive ? handleVoicePress : undefined}
+              onKeyDown={isHoverOrActive ? (e) => e.key === "Enter" && handleVoicePress && handleVoicePress() : undefined}
               className={isHoverOrActive ? "cursor-pointer" : ""}
               style={{
                 ...(isHoverOrActive ? {} : { position: "absolute", left: 0, top: 0, visibility: "hidden" as const }),
@@ -553,9 +556,10 @@ export default function FloatingBar() {
 
         {/* Menu : une seule condition (isMenuOpen || isMenuClosing), entrée en fade-in */}
         {(isMenuOpen || isMenuClosing) && (
-          <div 
+          <div
             ref={menuRef}
             role="menu"
+            tabIndex={0}
             onMouseEnter={cancelLeaveAndKeepHover}
             className={cn(
               "absolute top-full mt-2 flex flex-col gap-1 py-2.5 px-2",

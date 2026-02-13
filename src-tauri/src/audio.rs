@@ -32,6 +32,7 @@ pub fn list_input_devices() -> Result<Vec<AudioInputDevice>, String> {
 }
 
 // Défaut (2 min) pour tests; en prod on utilise preferences::max_recording_samples(app)
+#[allow(dead_code)]
 const DEFAULT_MAX_RECORDING_SAMPLES: usize = 16000 * 60 * 2;
 
 #[derive(Clone, serde::Serialize)]
@@ -378,6 +379,7 @@ fn start_stream(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn write_wav(path: &std::path::Path, samples: &[f32], sample_rate: u32) -> Result<(), String> {
     let spec = wav_spec(sample_rate);
     let mut writer = hound::WavWriter::create(path, spec).map_err(|e| e.to_string())?;
@@ -388,6 +390,7 @@ pub fn write_wav(path: &std::path::Path, samples: &[f32], sample_rate: u32) -> R
     Ok(())
 }
 
+#[allow(dead_code)]
 fn wav_spec(sample_rate: u32) -> hound::WavSpec {
     hound::WavSpec {
         channels: 1,

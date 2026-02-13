@@ -515,7 +515,7 @@ mod tests {
             .map(|_| {
                 thread::spawn(|| {
                     // Lecture du cache (ne panique pas même si vide)
-                    let _ = API_KEY_CACHE.read();
+                    let _guard = API_KEY_CACHE.read();
                 })
             })
             .collect();

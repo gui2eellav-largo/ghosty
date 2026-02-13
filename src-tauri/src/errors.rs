@@ -6,6 +6,7 @@ use serde::Serialize;
 pub enum ApiKeyError {
     InvalidFormat(String),
     Unauthorized,
+    #[allow(dead_code)]
     Forbidden,
     NetworkTimeout,
     NetworkError(String),

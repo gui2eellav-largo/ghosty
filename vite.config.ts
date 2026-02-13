@@ -33,7 +33,7 @@ export default defineConfig({
     outDir: "dist",
     rollupOptions: {
       output: {
-        // Vendor chunks for better caching; Orb (three/drei) is unused so not in bundle
+        // Vendor chunks for better caching
         manualChunks: (id) => {
           if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) return "react";
           if (id.includes("node_modules/@tauri-apps/")) return "tauri";

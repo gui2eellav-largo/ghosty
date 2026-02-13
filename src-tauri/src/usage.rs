@@ -16,6 +16,7 @@ pub struct UsageStats {
 }
 
 impl UsageStats {
+    #[allow(dead_code)]
     pub fn estimated_cost_usd(&self) -> f64 {
         let llm_input = (self.tokens_input as f64 / 1_000_000.0) * 0.15;
         let llm_output = (self.tokens_output as f64 / 1_000_000.0) * 0.60;

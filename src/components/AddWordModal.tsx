@@ -97,12 +97,12 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
           )}
 
           <div className="flex items-center justify-between gap-2">
-            <label className="flex items-center gap-1.5 text-sm font-medium text-black dark:text-white">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-black dark:text-white">
               Correct a misspelling
               <span className="text-muted-foreground" title="When on, define a form that is often misrecognized and the correct form to use.">
                 <Info size={14} />
               </span>
-            </label>
+            </span>
             <ToggleSwitch
               checked={correctMisspelling}
               onChange={setCorrectMisspelling}
@@ -112,10 +112,11 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
           {correctMisspelling ? (
             <div className="space-y-3">
               <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+                <label htmlFor="addword-misspelling" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
                   Misspelling
                 </label>
                 <input
+                  id="addword-misspelling"
                   type="text"
                   value={misspelling}
                   onChange={(e) => setMisspelling(e.target.value)}
@@ -127,10 +128,11 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
                 <span className="text-lg">→</span>
               </div>
               <div>
-                <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+                <label htmlFor="addword-correct" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
                   Correct spelling
                 </label>
                 <input
+                  id="addword-correct"
                   type="text"
                   value={correctSpelling}
                   onChange={(e) => setCorrectSpelling(e.target.value)}
@@ -141,15 +143,15 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
             </div>
           ) : (
             <div>
-              <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
+              <label htmlFor="addword-word" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
                 Word *
               </label>
               <input
+                id="addword-word"
                 type="text"
                 value={word}
                 onChange={(e) => setWord(e.target.value)}
                 placeholder="Add a new word"
-                autoFocus
                 className="w-full px-4 py-2.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.08] dark:border-white/[0.08] focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-sm font-semibold"
               />
               <p className="text-[11px] text-muted-foreground/60 mt-1.5">

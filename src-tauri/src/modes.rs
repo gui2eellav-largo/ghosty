@@ -6,6 +6,7 @@ use tauri::Manager;
 const MODES_FILENAME: &str = "modes.json";
 
 /// Id du mode Direct (fast path sans LLM). Ne peut jamais être supprimé.
+#[allow(dead_code)]
 pub const DIRECT_MODE_ID: &str = "light";
 
 /// Ids des modes intégrés (prompts non exposés au frontend).
@@ -55,6 +56,7 @@ pub struct ModeConfig {
 }
 
 impl ModeConfig {
+    #[allow(dead_code)]
     pub fn new_custom(
         name: String,
         description: String,

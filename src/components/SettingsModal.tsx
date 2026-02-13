@@ -84,11 +84,14 @@ export function SettingsModal({ isOpen, onClose, children }: SettingsModalProps)
   if (!isOpen) return null;
 
   return (
-    <div
+    <button
+      type="button"
       className={uiClasses.modalOverlay}
       onClick={onClose}
-      role="presentation"
+      onKeyDown={(e) => e.key === "Escape" && onClose()}
+      aria-label="Close modal"
     >
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- dialog content: stopPropagation only */}
       <div
         ref={dialogRef}
         role="dialog"
@@ -99,6 +102,7 @@ export function SettingsModal({ isOpen, onClose, children }: SettingsModalProps)
           "animate-in fade-in zoom-in-95 duration-200"
         )}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
       >
         <div className={uiClasses.modalHeader}>
           <div className="flex items-center justify-between">
@@ -126,7 +130,7 @@ export function SettingsModal({ isOpen, onClose, children }: SettingsModalProps)
 
         <div className={uiClasses.modalBody}>{children}</div>
       </div>
-    </div>
+    </button>
   );
 }
 

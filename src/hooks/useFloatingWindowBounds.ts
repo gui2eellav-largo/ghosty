@@ -57,5 +57,6 @@ export function useFloatingWindowBounds(
       line: `FRONT useLayoutEffect layoutMode=pill centerX=${centerX} x=${x} w=${w} prevX=${prev?.x ?? "null"} deltaX=${deltaX} -> set_floating_window_bounds`,
     }).catch(() => {});
     invoke("set_floating_window_bounds", { x, y, width: w, height: h }).catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lastBoundsRef is a ref, stable
   }, [positionReady, layoutMode, centerXRef, windowYRef]);
 }
