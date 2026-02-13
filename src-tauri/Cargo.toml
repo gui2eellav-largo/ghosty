@@ -15,6 +15,8 @@ crate-type = ["lib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+bytes = "1.11.1"  # RUSTSEC-2026-0007 (transitive via reqwest)
+time = "0.3.47"   # RUSTSEC-2026-0009 (transitive)
 tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-deep-link = "2"
 tauri-plugin-global-shortcut = "2"
@@ -39,9 +41,6 @@ tauri-plugin-notification = "2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = "2.9"
-
-[patch.crates-io]
-bytes = { version = "1.11.1" }  # RUSTSEC-2026-0007
 
 [features]
 default = ["custom-protocol"]
