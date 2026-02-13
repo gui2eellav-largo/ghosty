@@ -37,7 +37,11 @@ export function Orb({
   className,
 }: OrbProps) {
   return (
-    <div className={className ?? "relative h-full w-full"}>
+    <div
+      className={className ?? "relative h-full w-full"}
+      role="img"
+      aria-hidden="true"
+    >
       <Canvas
         resize={{ debounce: resizeDebounce }}
         gl={{
@@ -106,6 +110,16 @@ function Scene({
   const manualOutRef = useRef<number>(manualOutput ?? 0)
   const curInRef = useRef(0)
   const curOutRef = useRef(0)
+  const visibleRef = useRef(true)
+
+  useEffect(() => {
+    const onVisibility = () => {
+      visibleRef.current = document.visibilityState === "visible"
+    }
+    onVisibility()
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => document.removeEventListener("visibilitychange", onVisibility)
+  }, [])
 
   useEffect(() => {
     agentRef.current = agentState
@@ -144,9 +158,11 @@ function Scene({
 
   useEffect(() => {
     const apply = () => {
-      if (!circleRef.current) return
+      const circle = circleRef.current
+      const uInverted = circle?.material?.uniforms?.uInverted
+      if (!uInverted) return
       const isDark = document.documentElement.classList.contains("dark")
-      circleRef.current.material.uniforms.uInverted.value = isDark ? 1 : 0
+      uInverted.value = isDark ? 1 : 0
     }
 
     apply()
@@ -160,6 +176,7 @@ function Scene({
   }, [])
 
   useFrame((_, delta: number) => {
+    if (!visibleRef.current) return
     const mat = circleRef.current?.material
     if (!mat) return
     const live = colorsRef?.current
@@ -168,9 +185,10 @@ function Scene({
       if (live[1]) targetColor2Ref.current.set(live[1])
     }
     const u = mat.uniforms
-    u.uTime.value += delta * 0.5
+    const uTime = u?.uTime
+    if (uTime) uTime.value += delta * 0.5
 
-    if (u.uOpacity.value < 1) {
+    if (u.uOpacity && u.uOpacity.value < 1) {
       u.uOpacity.value = Math.min(1, u.uOpacity.value + delta * 2)
     }
 
@@ -184,7 +202,7 @@ function Scene({
         manualOutput ?? outputVolumeRef?.current ?? getOutputVolume?.() ?? 0
       )
     } else {
-      const t = u.uTime.value * 2
+      const t = (u.uTime?.value ?? 0) * 2
       if (agentRef.current === null) {
         targetIn = 0
         targetOut = 0.3
@@ -208,11 +226,11 @@ function Scene({
     const targetSpeed = 0.1 + (1 - Math.pow(curOutRef.current - 1, 2)) * 0.9
     animSpeedRef.current += (targetSpeed - animSpeedRef.current) * 0.12
 
-    u.uAnimation.value += delta * animSpeedRef.current
-    u.uInputVolume.value = curInRef.current
-    u.uOutputVolume.value = curOutRef.current
-    u.uColor1.value.lerp(targetColor1Ref.current, 0.08)
-    u.uColor2.value.lerp(targetColor2Ref.current, 0.08)
+    if (u.uAnimation) u.uAnimation.value += delta * animSpeedRef.current
+    if (u.uInputVolume) u.uInputVolume.value = curInRef.current
+    if (u.uOutputVolume) u.uOutputVolume.value = curOutRef.current
+    if (u.uColor1) u.uColor1.value.lerp(targetColor1Ref.current, 0.08)
+    if (u.uColor2) u.uColor2.value.lerp(targetColor2Ref.current, 0.08)
   })
 
   useEffect(() => {
@@ -250,7 +268,9 @@ function Scene({
 
   return (
     <mesh ref={circleRef}>
+      {/* eslint-disable-next-line react/no-unknown-property -- Three.js geometry args */}
       <circleGeometry args={[3.5, 64]} />
+      {/* eslint-disable-next-line react/no-unknown-property -- Three.js ShaderMaterial props */}
       <shaderMaterial
         uniforms={uniforms}
         fragmentShader={fragmentShader}

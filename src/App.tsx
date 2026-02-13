@@ -1,19 +1,14 @@
-import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import FloatingBar from "./components/FloatingBar";
 import Dashboard from "./components/Dashboard";
 
 export default function App() {
-  const [windowLabel, setWindowLabel] = useState<string>("");
+  const windowLabel = getCurrentWindow().label;
 
-  useEffect(() => {
-    const label = getCurrentWindow().label;
-    setWindowLabel(label);
-  }, []);
-
-  if (windowLabel === "floating") {
-    return <FloatingBar />;
-  }
-
-  return <Dashboard />;
+  return (
+    <ErrorBoundary>
+      {windowLabel === "floating" ? <FloatingBar /> : <Dashboard />}
+    </ErrorBoundary>
+  );
 }

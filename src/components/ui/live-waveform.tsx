@@ -1,4 +1,4 @@
-import { useEffect, useRef, type HTMLAttributes } from "react"
+import { memo, useEffect, useRef, type HTMLAttributes } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -25,7 +25,7 @@ export type LiveWaveformProps = HTMLAttributes<HTMLDivElement> & {
   onStreamEnd?: () => void
 }
 
-export const LiveWaveform = ({
+const LiveWaveformComponent = ({
   active = false,
   processing = false,
   deviceId,
@@ -61,11 +61,24 @@ export const LiveWaveform = ({
   const lastActiveDataRef = useRef<number[]>([])
   const transitionProgressRef = useRef(0)
   const staticBarsRef = useRef<number[]>([])
+  const smoothedBarsRef = useRef<number[]>([])
   const needsRedrawRef = useRef(true)
   const gradientCacheRef = useRef<CanvasGradient | null>(null)
   const lastWidthRef = useRef(0)
+  const reducedMotionRef = useRef(false)
+  const SMOOTHING_FACTOR = 0.22
 
   const heightStyle = typeof height === "number" ? `${height}px` : height
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)")
+    reducedMotionRef.current = mq.matches
+    const onChange = () => {
+      reducedMotionRef.current = mq.matches
+    }
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
 
   // Handle canvas resizing
   useEffect(() => {
@@ -102,6 +115,7 @@ export const LiveWaveform = ({
       transitionProgressRef.current = 0
 
       const animateProcessing = () => {
+        if (reducedMotionRef.current) return
         time += 0.03
         transitionProgressRef.current = Math.min(
           1,
@@ -216,12 +230,21 @@ export const LiveWaveform = ({
           } else {
             if (mode === "static") {
               staticBarsRef.current = []
+              smoothedBarsRef.current = []
             } else {
               historyRef.current = []
             }
           }
         }
         fadeToIdle()
+      } else {
+        // Already idle with no data: ensure no leftover bars on next paint
+        if (mode === "static") {
+          staticBarsRef.current = []
+          smoothedBarsRef.current = []
+        } else {
+          historyRef.current = []
+        }
       }
     }
   }, [processing, active, barWidth, barGap, mode])
@@ -353,27 +376,31 @@ export const LiveWaveform = ({
             const halfCount = Math.floor(barCount / 2)
             const newBars: number[] = []
 
-            // Mirror the data for symmetric display
-            for (let i = halfCount - 1; i >= 0; i--) {
-              const dataIndex = Math.floor(
-                (i / halfCount) * relevantData.length
-              )
-              const value = Math.min(
-                1,
-                (relevantData[dataIndex] / 255) * sensitivity
-              )
-              newBars.push(Math.max(0.05, value))
-            }
+            if (halfCount > 0 && relevantData.length > 0) {
+              // Mirror the data for symmetric display
+              for (let i = halfCount - 1; i >= 0; i--) {
+                const dataIndex = Math.floor(
+                  (i / halfCount) * relevantData.length
+                )
+                const raw = relevantData[dataIndex]
+                const value = Math.min(
+                  1,
+                  ((raw !== undefined ? raw : 0) / 255) * sensitivity
+                )
+                newBars.push(Math.max(0.05, value))
+              }
 
-            for (let i = 0; i < halfCount; i++) {
-              const dataIndex = Math.floor(
-                (i / halfCount) * relevantData.length
-              )
-              const value = Math.min(
-                1,
-                (relevantData[dataIndex] / 255) * sensitivity
-              )
-              newBars.push(Math.max(0.05, value))
+              for (let j = 0; j < halfCount; j++) {
+                const dataIndex = Math.floor(
+                  (j / halfCount) * relevantData.length
+                )
+                const raw = relevantData[dataIndex]
+                const value = Math.min(
+                  1,
+                  ((raw !== undefined ? raw : 0) / 255) * sensitivity
+                )
+                newBars.push(Math.max(0.05, value))
+              }
             }
 
             staticBarsRef.current = newBars
@@ -386,7 +413,7 @@ export const LiveWaveform = ({
             const relevantData = dataArray.slice(startFreq, endFreq)
 
             for (let i = 0; i < relevantData.length; i++) {
-              sum += relevantData[i]
+              sum += relevantData[i] ?? 0
             }
             const average = (sum / relevantData.length / 255) * sensitivity
 
@@ -403,7 +430,7 @@ export const LiveWaveform = ({
         }
       }
 
-      // Only redraw if needed
+      // Redraw every frame when active (for bar smoothing), otherwise only when needed
       if (!needsRedrawRef.current && !active) {
         rafId = requestAnimationFrame(animate)
         return
@@ -425,19 +452,38 @@ export const LiveWaveform = ({
       const barCount = Math.floor(rect.width / step)
       const centerY = rect.height / 2
 
+      // Idle: no bars, only the dotted line (in JSX). Avoid leftover or default bar draw.
+      if (!active && !processing) {
+        ctx.clearRect(0, 0, rect.width, rect.height)
+        needsRedrawRef.current = false
+        rafId = requestAnimationFrame(animate)
+        return
+      }
+
       // Draw bars based on mode
       if (mode === "static") {
-        // Static mode - bars in fixed positions
+        // Static mode - bars in fixed positions; smooth bar heights toward target
         const dataToRender = processing
           ? staticBarsRef.current
           : active
             ? staticBarsRef.current
-            : staticBarsRef.current.length > 0
-              ? staticBarsRef.current
-              : []
+            : []
 
-        for (let i = 0; i < barCount && i < dataToRender.length; i++) {
-          const value = dataToRender[i] || 0.1
+        if (smoothedBarsRef.current.length !== barCount) {
+          smoothedBarsRef.current = dataToRender.slice(0, barCount)
+          while (smoothedBarsRef.current.length < barCount) {
+            smoothedBarsRef.current.push(0)
+          }
+        }
+        for (let i = 0; i < barCount; i++) {
+          const target = dataToRender[i] ?? 0
+          const current = smoothedBarsRef.current[i] ?? 0
+          smoothedBarsRef.current[i] = current + (target - current) * SMOOTHING_FACTOR
+        }
+
+        for (let i = 0; i < barCount && i < smoothedBarsRef.current.length; i++) {
+          const value = smoothedBarsRef.current[i] || 0
+          if (value <= 0) continue
           const x = i * step
           const barHeight = Math.max(baseBarHeight, value * rect.height * 0.8)
           const y = centerY - barHeight / 2
@@ -535,6 +581,7 @@ export const LiveWaveform = ({
       className={cn("relative h-full w-full", className)}
       ref={containerRef}
       style={{ height: heightStyle }}
+      role="img"
       aria-label={
         active
           ? "Live audio waveform"
@@ -542,7 +589,7 @@ export const LiveWaveform = ({
             ? "Processing audio"
             : "Audio waveform idle"
       }
-      role="img"
+      aria-live="polite"
       {...props}
     >
       {!active && !processing && (
@@ -556,3 +603,5 @@ export const LiveWaveform = ({
     </div>
   )
 }
+
+export const LiveWaveform = memo(LiveWaveformComponent)

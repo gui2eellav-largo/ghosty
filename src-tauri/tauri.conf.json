@@ -26,9 +26,9 @@
     {
       "label": "floating",
       "title": "Ghosty",
-      "width": 180,
-      "height": 320,
-      "center": true,
+      "width": 28,
+      "height": 28,
+      "x": 0,
       "y": 0,
       "resizable": false,
       "decorations": false,
@@ -42,7 +42,7 @@
     }
     ],
     "security": {
-      "csp": null,
+      "csp": "default-src 'self' asset: https://asset.localhost; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: https://api.openai.com https://*.openai.azure.com https://api.anthropic.com https:; img-src 'self' asset: https://asset.localhost blob: data:; font-src 'self'",
       "capabilities": ["default"]
     }
   },
@@ -69,5 +69,11 @@
     "shortDescription": "Voice-to-text with global hotkey",
     "longDescription": "Voice-to-text with recording triggered by global hotkey (hold key). Pre-prompt for context injection. Text to focused field or clipboard."
   },
-  "plugins": {}
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["ghosty"]
+      }
+    }
+  }
 }

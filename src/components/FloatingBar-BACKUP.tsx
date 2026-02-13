@@ -1,1 +1,0 @@
-// Backup du composant original

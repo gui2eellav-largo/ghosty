@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon, XIcon } from "lucide-react"
+import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -74,6 +74,12 @@ export interface VoiceButtonProps
   waveformClassName?: string
 
   /**
+   * Waveform update rate in ms (~16 for 60fps)
+   * @default 30
+   */
+  waveformUpdateRate?: number
+
+  /**
    * Duration in ms to show success/error states
    * @default 1500
    */
@@ -85,10 +91,7 @@ export interface VoiceButtonProps
   disabled?: boolean
 }
 
-export const VoiceButton = React.forwardRef<
-  HTMLButtonElement,
-  VoiceButtonProps
->(
+const VoiceButtonInner = React.forwardRef<HTMLButtonElement, VoiceButtonProps>(
   (
     {
       state = "idle",
@@ -100,6 +103,7 @@ export const VoiceButton = React.forwardRef<
       size = "default",
       className,
       waveformClassName,
+      waveformUpdateRate,
       feedbackDuration = 1500,
       disabled,
       onClick,
@@ -130,7 +134,8 @@ export const VoiceButton = React.forwardRef<
 
     const isRecording = state === "recording"
     const isProcessing = state === "processing"
-    const isSuccess = state === "success"
+    const _isSuccess = state === "success"
+    void _isSuccess
     const isError = state === "error"
 
     const buttonVariant = variant
@@ -140,6 +145,17 @@ export const VoiceButton = React.forwardRef<
 
     const shouldShowWaveform = isRecording || isProcessing || showFeedback
     const shouldShowTrailing = !shouldShowWaveform && trailing
+
+    const ariaLabel =
+      state === "recording"
+        ? "Recording…"
+        : state === "processing"
+          ? "Processing…"
+          : state === "success"
+            ? "Voice input ready"
+            : state === "error"
+              ? "Voice input failed"
+              : "Start voice input"
 
     return (
       <Button
@@ -154,7 +170,8 @@ export const VoiceButton = React.forwardRef<
           size === "icon" && "relative",
           className
         )}
-        aria-label={"Voice Button"}
+        aria-label={ariaLabel}
+        aria-live="polite"
         {...props}
       >
         {size !== "icon" && displayLabel && (
@@ -169,7 +186,6 @@ export const VoiceButton = React.forwardRef<
             size === "icon"
               ? "absolute inset-0 rounded-sm border-0 bg-transparent"
               : "h-5 w-24 rounded-sm border",
-            isProcessing && "animate-shimmer",
             size !== "icon" && "border-border bg-muted/50",
             waveformClassName
           )}
@@ -180,12 +196,13 @@ export const VoiceButton = React.forwardRef<
               processing={false}
               barWidth={1.2}
               barGap={1.2}
-              barRadius={1.5}
+              barRadius={2}
               fadeEdges={false}
               sensitivity={1.5}
               smoothingTimeConstant={0.85}
               height={18}
               mode="static"
+              updateRate={waveformUpdateRate ?? 30}
               className="animate-in fade-in absolute inset-0 flex items-center justify-center duration-300 ease-out waveform-bar"
             />
           )}
@@ -232,4 +249,6 @@ export const VoiceButton = React.forwardRef<
   }
 )
 
-VoiceButton.displayName = "VoiceButton"
+VoiceButtonInner.displayName = "VoiceButton"
+
+export const VoiceButton = React.memo(VoiceButtonInner)

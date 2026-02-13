@@ -59,16 +59,17 @@ Each Ghosty mode = **2-4 magic keywords** combination defining:
 2. **Cognitive action** (transformation type)
 3. **Output qualifier** (constraints)
 
-### Mode Template
+### Mode Template (méthodologie)
 
 ```typescript
 {
   id: "mode_id",
   name: "Human-readable name",
-  prompt: "[Methodology]. [Cognitive action]. [Output qualifier].",
-  category: "enhancement|documentation|communication"
+  prompt: "[Methodology]. [Cognitive action]. [Output qualifier]."
 }
 ```
+
+**Alignement code** : Les modes built-in actuels sont **Direct** (sans LLM), **Shape**, **Reframe**, **Build**. La structure `ModeConfig` côté app n’a pas de champ `category` ; les catégories ci-dessous sont une grille méthodologique, pas une donnée stockée.
 
 ---
 

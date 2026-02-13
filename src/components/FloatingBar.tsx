@@ -1,310 +1,619 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow, Window, primaryMonitor } from "@tauri-apps/api/window";
+import { listen, emit } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils";
+import { designTokens } from "@/lib/design-tokens";
+import { useFloatingWindowBounds, type FloatingLayoutMode } from "@/hooks/useFloatingWindowBounds";
+import { api } from "@/api/tauri";
+import type { Mode, ModeConfig } from "@/types";
 import { VoiceButton } from "./ui/voice-button";
-import { Check } from "lucide-react";
 
-type Mode = "minimal" | "light" | "medium" | "strong" | "full";
-
-const MODE_PROMPTS: Record<Mode, string> = {
-  minimal: `Improve syntax and readability; add 0–2 magic keywords only when clearly relevant. Almost like clean transcription. Do not be aggressive on rewriting.
-
-Purpose: Minimal enhancement. Transform the user's voice input into an improved prompt. Do not execute the request; output the prompt only. Preserve the user's phrasing; do not expand or restructure.
-
-Process:
-1. Syntax and clarity: Fix punctuation, capitalization; remove filler words if any. Preserve the user's phrasing; do not expand or restructure.
-2. Optional keywords: Add 0–2 magic keywords (e.g. Step by step, Trade-offs) only when they clearly fit and input length warrants it; otherwise leave wording as-is. Non-intrusive.
-
-Output format (strict): First output the improved prompt ready to copy. Then on a new line write exactly ---REFLECTION---. Then write a brief reflection in English explaining what was preserved and what minimal changes were made (1-2 sentences).
-
-Constraints: Length: ±10% of original. Intent: Preserved 100%. No execution.
-Rules: Minimal intervention. Keywords only when relevant and non-intrusive. Preserve phrasing. Reflection always in English.`,
-
-  light: `One clear task, everyday prompt. Dense enhancement while preserving length (±10%).
-
-Purpose: Transform the user's voice input into an improved prompt of similar length. Do not execute the request; output the prompt only.
-
-Process:
-1. Contextual analysis: Use prior exchange context and patterns; identify primary intent without alteration; detect implicit constraints; assess complexity to adapt enrichment.
-2. Semantic understanding: Identify cognitive intent (iterative, analytical, comparative, creative); select 1–2 relevant semantic enrichments from context; flag ambiguities to clarify.
-3. Contextual enrichment: Integrate relevant prior elements; align with conversation style; activate appropriate reasoning modes for the intent.
-4. Domain nomenclature: Identify domain (UX, dev, marketing, architecture); adopt top 0.001% expert perspective; replace generic phrasing with precise technical vocabulary. Add 1–2 magic keywords by intent woven naturally.
-
-Output format (strict): First output the improved prompt ready to copy. Then on a new line write exactly ---REFLECTION---. Then write a brief reflection in English: what domain was identified, which 1-2 enrichments were applied, and why (2-3 sentences max).
-
-Constraints: Length: ±10% of original. Intent: Preserved 100%. No execution.
-Rules: Maximum 1–2 light enrichments. Use appropriate domain nomenclature. Clarify ambiguities concisely. Minimal structuring only if needed. Reflection always in English.`,
-
-  medium: `Multi-step or important task. May extend slightly; 2–3 enrichments and magic keywords.
-
-Purpose: Transform the user's voice input into an improved prompt for multi-step or important tasks. Do not execute the request; output the prompt only.
-
-Process:
-1. Contextual analysis: Use prior exchange context and patterns; identify primary intent without alteration; detect implicit constraints; assess complexity to adapt enrichment.
-2. Semantic understanding: Identify cognitive intent (iterative, analytical, comparative, creative); select relevant semantic enrichments from context; flag ambiguities to clarify.
-3. Contextual enrichment: Integrate relevant prior elements; align with conversation style and preferences; activate appropriate reasoning modes for the intent; 2–3 targeted enrichments.
-4. Domain nomenclature: Identify domain; adopt top 0.001% expert perspective; replace generic phrasing with precise technical vocabulary. Embed 2–3 magic keywords by intent. Place strategically; weave into text naturally. Light sections if needed.
-
-Output format (strict): First output the improved prompt ready to copy. Then on a new line write exactly ---REFLECTION---. Then write a concise reflection in English: cognitive intent identified, which 2-3 enrichments were selected, which magic keywords were embedded and their strategic placement rationale (3-4 sentences).
-
-Constraints: Intent: Preserved 100%. No execution.
-Rules: 2–3 enrichments. 2–3 magic keywords. Clarify ambiguities concisely. Light structuring only if needed. Reflection always in English.`,
-
-  strong: `Project kickoff, framing. Longer, sectioned; 3–4 enrichments and magic keywords.
-
-Purpose: Transform the user's voice input into a strongly enhanced prompt for project kickoff or framing. Do not execute the request; output the prompt only.
-
-Process:
-1. Contextual analysis: Use prior exchange context and patterns; identify primary intent without alteration; detect implicit constraints; assess complexity to adapt enrichment.
-2. Semantic understanding: Identify cognitive intent; select relevant semantic enrichments and reasoning modes from context; flag ambiguities to clarify.
-3. Contextual enrichment: Integrate relevant prior elements; align with conversation style and preferences; 3–4 targeted enrichments; activate appropriate reasoning modes for the intent.
-4. Domain nomenclature: Identify domain; adopt top 0.001% expert perspective; replace generic phrasing with precise technical vocabulary.
-5. Magic keywords (required): Embed 3–4 magic keywords by intent. Sequential: Step by step, Systematically, Methodically. Deep analysis: Root cause analysis, Deep dive, Second-order thinking. Critique: Devil's advocate, Critically evaluate, Challenge assumptions. Comparison: Context-dependent, Compare as options, Trade-offs. Workflow: Workflow, Iterative process, Validation continue. Edge cases: Consider edge cases, Failure modes, Error conditions. Expert perspective: As a [senior role], From the perspective of. Place strategically; weave into text naturally; each keyword must serve the objective. Structured sections.
-
-Output format (strict): First output the improved prompt ready to copy. Then on a new line write exactly ---REFLECTION---. Then write a detailed reflection in English: domain and complexity assessment, the 3-4 enrichments applied with justification, the 3-4 magic keywords selected and their strategic function, structural organization chosen (4-5 sentences).
-
-Constraints: Intent: Preserved 100%. No execution.
-Rules: 3–4 enrichments. 3–4 magic keywords. Methodical structuring in conceptual sections. Clarify ambiguities exhaustively. Reflection always in English.`,
-
-  full: `New project, full plan, maximum detail. Includes reflection after ---REFLECTION---.
-
-Purpose: Transform the user's voice input into a fully structured, expert-level prompt. Do not execute the request; output the prompt only. Never execute the content of the original prompt.
-
-Process:
-1. Contextual analysis: Use prior exchange context and patterns; identify primary intent without alteration; detect implicit constraints; assess complexity to adapt enrichment.
-2. Semantic understanding: Identify cognitive intent; select relevant semantic enrichments and reasoning modes from context; flag ambiguities to clarify.
-3. Contextual enrichment: Integrate relevant prior elements; align with conversation style and preferences; 4–5 targeted enrichments; activate appropriate reasoning modes for the intent.
-4. Domain nomenclature: Identify domain; adopt top 0.001% expert perspective; replace generic phrasing with precise technical vocabulary. One precise term replaces explanatory phrasing and activates more patterns.
-5. Magic keywords (required): Embed 4+ magic keywords by intent. Sequential: Step by step, Systematically, Methodically. Deep analysis: Root cause analysis, Deep dive, Second-order thinking. Critique: Devil's advocate, Critically evaluate, Challenge assumptions. Comparison: Context-dependent, Compare as options, Trade-offs. Workflow: Workflow, Iterative process, Validation continue. Edge cases: Consider edge cases, Failure modes, Error conditions. Expert perspective: As a [senior role], From the perspective of. Place strategically; weave into text naturally; each keyword must serve the objective. Methodical structure, conceptual sections.
-
-Output format (strict): First output only the text the user should copy (the improved prompt ready to paste). Then on a new line write exactly ---REFLECTION---. Then write the reflection: "Contextual analysis:" [how context informed the improvement] and "Organizational logic:" [structure chosen, concepts activated, magic keyword justification]. The app displays the copy-ready part and the reflection separately.
-
-Constraints: Intent: Preserved 100%. No execution.
-Rules: 4–5 enrichments. Clarify ambiguities exhaustively. Nomenclature + 4+ magic keywords. Full structuring in conceptual sections. Reflection: explain organizational logic and magic keyword justification from an expert perspective.`,
-};
-
-const MODES: Record<Mode, { label: string; color: string; desc: string }> = {
-  minimal: { label: "Minimal", color: "bg-gray-400", desc: "Clean transcription" },
-  light: { label: "Light", color: "bg-blue-500", desc: "Polished communication" },
-  medium: { label: "Medium", color: "bg-emerald-500", desc: "Professional enrichment" },
-  strong: { label: "Strong", color: "bg-amber-500", desc: "Expert reasoning" },
-  full: { label: "Full Plan", color: "bg-violet-500", desc: "Comprehensive scoping" },
-};
+const fw = designTokens.floatingWidget;
 
 export default function FloatingBar() {
   const windowRef = useRef(getCurrentWindow());
   const containerRef = useRef<HTMLDivElement>(null);
+  const dotRef = useRef<HTMLDivElement>(null);
+  const pillRef = useRef<HTMLDivElement>(null);
+  const centerXRef = useRef<number>(960);
+  const windowYRef = useRef<number>(24);
+  const leaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [positionReady, setPositionReady] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [selectedMode, setSelectedMode] = useState<Mode>("medium");
+  const [isMenuClosing, setIsMenuClosing] = useState(false);
+  const menuCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const menuCloseCooldownRef = useRef<number>(0);
+  const [selectedMode, setSelectedMode] = useState<Mode>("light");
   const [voiceState, setVoiceState] = useState<"idle" | "recording" | "processing" | "success">("idle");
+  const [modes, setModes] = useState<ModeConfig[]>([]);
+  const [selectedModeConfig, setSelectedModeConfig] = useState<ModeConfig | null>(null);
+  const [hasApiKey, setHasApiKey] = useState<boolean>(true);
+  const [showApiKeyPrompt, setShowApiKeyPrompt] = useState<boolean>(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Position window at top center on mount
+  const loadHasApiKey = async () => {
+    try {
+      const ok = await api.apiKeys.hasKey();
+      setHasApiKey(ok);
+    } catch {
+      setHasApiKey(false);
+    }
+  };
+
+  const loadModes = async () => {
+    try {
+      const allModes = await api.modes.getAll();
+      const enabledModes = allModes.filter(m => m.enabled).sort((a, b) => a.order - b.order);
+      setModes(enabledModes);
+
+      setSelectedModeConfig((current) => {
+        if (current && enabledModes.some(m => m.id === current.id)) return current;
+        return enabledModes[0] ?? null;
+      });
+      setSelectedMode((current) => {
+        if (enabledModes.some(m => m.id === current)) return current;
+        return (enabledModes[0]?.id as Mode) ?? current;
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    const positionWindow = async () => {
-      const { primaryMonitor } = await import("@tauri-apps/api/window");
-      const screen = await primaryMonitor();
-      if (screen) {
-        const size = await windowRef.current.outerSize();
-        const x = Math.floor((screen.size.width - size.width) / 2);
-        await invoke('set_window_position', { x, y: 0 });
-        console.log('[FloatingBar] Positioned at top center:', { x, y: 0 });
-      }
+    loadModes();
+    loadHasApiKey();
+  }, []);
+
+  useEffect(() => {
+    const unlisten = listen("modes-updated", () => loadModes());
+    return () => {
+      unlisten.then((u) => { try { u(); } catch { /* listener already removed */ } }).catch(() => {});
     };
-    positionWindow();
+  }, []);
+
+  // Sync active mode from Dashboard (or any other window)
+  useEffect(() => {
+    const unlisten = listen<string>("active-mode-changed", (event) => {
+      const modeId = event.payload;
+      if (!modeId) return;
+      setSelectedMode(modeId as Mode);
+      const found = modes.find(m => m.id === modeId);
+      if (found) {
+        setSelectedModeConfig(found);
+      }
+    });
+    return () => {
+      unlisten.then((u) => { try { u(); } catch { /* listener already removed */ } }).catch(() => {});
+    };
+  }, [modes]);
+
+  useEffect(() => {
+    const initFloatingWindow = async () => {
+      const monitor = await primaryMonitor();
+      if (monitor) {
+        const scale = monitor.scaleFactor;
+        const workArea = monitor.workArea;
+        const logicalWidth = workArea.size.width / scale;
+        centerXRef.current = workArea.position.x / scale + logicalWidth / 2;
+        windowYRef.current = workArea.position.y / scale;
+      }
+      setPositionReady(true);
+      // Bounds gérées uniquement par useFloatingWindowBounds (useLayoutEffect) pour éviter double appel et sliding
+      windowRef.current.setFocus().catch(() => {});
+      windowRef.current.show().catch(() => {});
+    };
+    initFloatingWindow();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
+      if (menuCloseTimeoutRef.current) clearTimeout(menuCloseTimeoutRef.current);
+    };
   }, []);
 
   // Listen to recording events from Tauri
   useEffect(() => {
-    const unlistenStarted = listen("recording_started", () => {
-      setVoiceState("recording");
-    });
-    
-    const unlistenStopped = listen("recording_stopped", () => {
-      setVoiceState("processing");
-    });
-    
+    const unlistenStarted = listen("recording_started", () => setVoiceState("recording"));
+    const unlistenStopped = listen("recording_stopped", () => setVoiceState("processing"));
     const unlistenReady = listen("transcription_ready", () => {
       setVoiceState("success");
       setTimeout(() => setVoiceState("idle"), 1500);
     });
-    
-    const unlistenError = listen("transcription_error", () => {
-      setVoiceState("idle");
-    });
+    const unlistenError = listen("transcription_error", () => setVoiceState("idle"));
 
     return () => {
-      unlistenStarted.then(u => u());
-      unlistenStopped.then(u => u());
-      unlistenReady.then(u => u());
-      unlistenError.then(u => u());
+      const run = (p: Promise<() => void>) => p.then((u) => { try { u(); } catch { /* listener already removed */ } }).catch(() => {});
+      run(unlistenStarted);
+      run(unlistenStopped);
+      run(unlistenReady);
+      run(unlistenError);
     };
   }, []);
 
-  // No dynamic resize - fixed window size
+  const layoutMode: FloatingLayoutMode = isMenuOpen || isMenuClosing ? "menu" : "pill";
+  useFloatingWindowBounds(layoutMode, positionReady, centerXRef, windowYRef);
 
-  // Ensure window is always interactive (no click-through)
-  useEffect(() => {
+  const keepWindowInteractive = () => {
     invoke('set_window_click_through', { ignore: false }).catch(console.error);
+    windowRef.current.setFocus().catch(() => {});
+  };
+  useEffect(() => {
+    keepWindowInteractive();
   }, []);
 
-  const handleModeClick = (mode: Mode) => {
-    setSelectedMode(mode);
-    setIsMenuOpen(false);
-    
-    // Update active prompt and mode in Tauri state
-    const prompt = MODE_PROMPTS[mode];
-    invoke('set_active_prompt', { prompt, mode }).catch(console.error);
+  // Réaffirmer focus + non click-through après chaque changement de layout (évite flash/transparence 1 frame)
+  useLayoutEffect(() => {
+    if (!positionReady) return;
+    keepWindowInteractive();
+  }, [layoutMode, positionReady]);
+
+  // Donner le focus à la fenêtre quand le curseur entre dans ses bounds (macOS n'envoie pas hover sinon)
+  useEffect(() => {
+    const id = setInterval(() => {
+      invoke("focus_floating_if_cursor_inside").catch(() => {});
+    }, 120);
+    return () => clearInterval(id);
+  }, []);
+
+  const _handleModeClick = (mode: Mode) => {
+    const modeConfig = modes.find(m => m.id === mode);
+    if (modeConfig) {
+      handleModeSelect(modeConfig);
+    }
   };
+  void _handleModeClick;
 
   // Set initial mode prompt on mount
   useEffect(() => {
-    const prompt = MODE_PROMPTS[selectedMode];
-    invoke('set_active_prompt', { prompt, mode: selectedMode }).catch(console.error);
-  }, []);
+    if (selectedModeConfig) {
+      api.modes.setActivePrompt(selectedModeConfig.systemPrompt, selectedModeConfig.id).catch(console.error);
+    }
+  }, [selectedModeConfig]);
 
-  // Close menu when window loses focus (click outside)
+  // Attach wheel event to mode dot (only when menu is closed)
+  useEffect(() => {
+    const dot = dotRef.current;
+    if (!dot || isMenuOpen) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (modes.length === 0) return;
+      
+      const currentIndex = modes.findIndex(m => m.id === selectedMode);
+      if (currentIndex === -1) return;
+      
+      let newIndex = currentIndex;
+      if (e.deltaY < 0) {
+        newIndex = Math.max(0, currentIndex - 1);
+      } else if (e.deltaY > 0) {
+        newIndex = Math.min(modes.length - 1, currentIndex + 1);
+      }
+      const newMode = modes[newIndex];
+      if (newMode && newMode.id !== selectedMode) {
+        setSelectedMode(newMode.id as Mode);
+        setSelectedModeConfig(newMode);
+        api.modes.setActivePrompt(newMode.systemPrompt, newMode.id).catch(console.error);
+      }
+    };
+
+    dot.addEventListener('wheel', handleWheel, { passive: false });
+    
+    return () => {
+      dot.removeEventListener('wheel', handleWheel);
+    };
+  }, [selectedMode, isMenuOpen, modes]);
+
+  // Close menu when window loses focus (click outside to another window)
   useEffect(() => {
     let unlisten: (() => void) | null = null;
+    let cancelled = false;
 
     const setupListener = async () => {
       const { listen } = await import("@tauri-apps/api/event");
-      unlisten = await listen("tauri://blur", () => {
+      const u = await listen("tauri://blur", () => {
         if (isMenuOpen) {
+          if (leaveTimeoutRef.current) {
+            clearTimeout(leaveTimeoutRef.current);
+            leaveTimeoutRef.current = null;
+          }
           setIsMenuOpen(false);
+          setIsHovered(false);
         }
       });
+      if (!cancelled) unlisten = u;
+      else u();
     };
 
-    setupListener();
+    setupListener().catch(() => {});
 
     return () => {
-      if (unlisten) unlisten();
+      cancelled = true;
+      if (unlisten) {
+        try {
+          unlisten();
+        } catch {
+          // ignore if already removed
+        }
+      }
     };
   }, [isMenuOpen]);
 
-  const handleVoicePress = () => {
-    if (voiceState === "idle") {
-      invoke('start_recording').catch(console.error);
-    } else if (voiceState === "recording") {
-      invoke('stop_recording').catch(console.error);
+  // Close menu on click outside (inside the window: pill, padding, etc.)
+  // Ne pas fermer si le clic est sur la pill/dot : handleDotClick gère le toggle (fermeture fluide).
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (pillRef.current?.contains(target)) return;
+      if (menuRef.current && !menuRef.current.contains(target)) {
+        if (leaveTimeoutRef.current) {
+          clearTimeout(leaveTimeoutRef.current);
+          leaveTimeoutRef.current = null;
+        }
+        setIsMenuOpen(false);
+        setIsHovered(false);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown, true);
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true);
+  }, [isMenuOpen]);
+
+  // Focus first menu item when menu opens; Escape closes and returns focus to dot; focus trap (Tab cycles)
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const menuEl = menuRef.current;
+    if (menuEl) {
+      const focusables = menuEl.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      first?.focus();
+
+      const handleMenuKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setIsMenuOpen(false);
+          dotRef.current?.focus({ preventScroll: true });
+          return;
+        }
+        if (e.key !== "Tab" || focusables.length === 0) return;
+        const target = e.target as HTMLElement;
+        if (e.shiftKey) {
+          if (target === first) {
+            e.preventDefault();
+            last?.focus();
+          }
+        } else {
+          if (target === last) {
+            e.preventDefault();
+            first?.focus();
+          }
+        }
+      };
+      menuEl.addEventListener("keydown", handleMenuKeyDown);
+      return () => menuEl.removeEventListener("keydown", handleMenuKeyDown);
+    }
+  }, [isMenuOpen]);
+
+  const openSettingsToApi = async () => {
+    setShowApiKeyPrompt(false);
+    try {
+      const main = await Window.getByLabel("main");
+      if (main) {
+        await main.show();
+        await main.setFocus();
+      }
+      await emit("open-settings-section", "api");
+    } catch (e) {
+      console.error(e);
     }
   };
 
-  const handleDotClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsMenuOpen(!isMenuOpen);
+  const handleVoicePress = () => {
+    if (voiceState === "idle") {
+      if (!hasApiKey) {
+        setShowApiKeyPrompt(true);
+        return;
+      }
+      if (selectedModeConfig) {
+        invoke('set_active_prompt', { prompt: selectedModeConfig.systemPrompt, mode: selectedModeConfig.id }).catch(console.error);
+      }
+      invoke('start_recording').catch(console.error);
+    } else if (voiceState === "recording") {
+      api.recording.stop().catch(console.error);
+    } else if (voiceState === "processing") {
+      invoke('cancel_transcription').catch(console.error);
+      setVoiceState("idle");
+    }
   };
 
-  const isExpanded = isHovered || voiceState !== "idle" || isMenuOpen;
+  const handleModeSelect = (mode: ModeConfig) => {
+    setSelectedMode(mode.id as Mode);
+    setSelectedModeConfig(mode);
+    setIsMenuOpen(false);
+    api.modes.setActivePrompt(mode.systemPrompt, mode.id).catch(console.error);
+  };
+
+  const MENU_CLOSE_COOLDOWN_MS = 320;
+
+  const handleDotClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const now = Date.now();
+    const cooldownElapsed = now - menuCloseCooldownRef.current;
+    if (isMenuClosing) return;
+    if (isMenuOpen) {
+      setIsMenuClosing(true);
+      if (menuCloseTimeoutRef.current) clearTimeout(menuCloseTimeoutRef.current);
+      menuCloseTimeoutRef.current = setTimeout(() => {
+        menuCloseCooldownRef.current = Date.now();
+        menuCloseTimeoutRef.current = null;
+        setIsMenuOpen(false);
+        setIsMenuClosing(false);
+      }, 180);
+      return;
+    }
+    if (cooldownElapsed < MENU_CLOSE_COOLDOWN_MS) return;
+    keepWindowInteractive();
+    loadHasApiKey();
+    invoke("menu_bounds_log", { line: "FRONT handleDotClick -> setIsMenuOpen(true)" }).catch(() => {});
+    setIsMenuOpen(true);
+  };
+
+  // Annuler le leave timeout quand on entre dans le menu ou le pont (évite micro-resize au hover menu)
+  const cancelLeaveAndKeepHover = () => {
+    if (leaveTimeoutRef.current) {
+      clearTimeout(leaveTimeoutRef.current);
+      leaveTimeoutRef.current = null;
+    }
+    setIsHovered(true);
+  };
+
+  // Voice visible: hover sur la pill OU menu ouvert/fermeture OU enregistrement en cours
+  const isHoverOrActive = isHovered || isMenuOpen || isMenuClosing || voiceState !== "idle";
+  const scale = isHoverOrActive ? 1 : 0.5;
+
+  // En mode menu, garder la pill dans un slot fixe (largeur contenu mode pill) pour éviter un saut si le redimensionnement natif est en retard
+  const pillSlotWidth = fw.expandedWidth;
 
   return (
-    <div className="floating-bar-container">
+    <div
+      className="floating-bar-container"
+      style={{ padding: fw.bouncePadding, overflow: "visible", boxSizing: "border-box" }}
+    >
       <div 
         ref={containerRef}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
         className="relative flex flex-col items-center"
-        style={{ overflow: 'visible' }}
+        style={{
+          overflow: "visible",
+          pointerEvents: "none",
+          width: layoutMode === "menu" ? "100%" : undefined,
+        }}
       >
-        {/* Main button container - perfect circle to pill morphing */}
-        <div 
-          className={cn(
-            "floating-pill relative flex items-center will-change-[width] backface-hidden",
-            "bg-black/40 backdrop-blur-md border border-white/10",
-            "hover:bg-black/60",
-            voiceState === "processing" && "animate-shimmer",
-            voiceState === "success" && "animate-pulse-success"
-          )}
+        <div
+          className="relative z-0 flex"
           style={{
-            width: isExpanded ? "90px" : "28px",
-            height: "28px",
-            borderRadius: "14px",
-            justifyContent: isExpanded ? "space-between" : "center",
-            alignItems: "center",
-            gap: "0",
-            paddingLeft: isExpanded ? "8px" : "0",
-            paddingRight: isExpanded ? "8px" : "0",
-            transition: "all 500ms cubic-bezier(0.34, 1.56, 0.64, 1)",
-            transform: "translateZ(0)",
-            overflow: "visible",
+            pointerEvents: "none",
+            transformOrigin: "top center",
+            justifyContent: layoutMode === "menu" ? "flex-start" : "center",
+            width: layoutMode === "menu" ? "100%" : undefined,
+            alignSelf: layoutMode === "menu" ? "stretch" : undefined,
           }}
         >
-          {/* Voice button waveform - vertically centered */}
-          {isExpanded && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              width: layoutMode === "menu" ? pillSlotWidth : undefined,
+              minWidth: layoutMode === "menu" ? pillSlotWidth : undefined,
+            }}
+          >
+          <div
+            ref={pillRef}
+            onMouseEnter={() => {
+              if (leaveTimeoutRef.current) {
+                clearTimeout(leaveTimeoutRef.current);
+                leaveTimeoutRef.current = null;
+              }
+              setIsHovered(true);
+              keepWindowInteractive();
+            }}
+            onMouseLeave={() => {
+              leaveTimeoutRef.current = setTimeout(() => {
+                leaveTimeoutRef.current = null;
+                setIsHovered(false);
+              }, fw.leaveDelayMs);
+            }}
+            className={cn(
+              "floating-pill relative z-[10] flex items-center overflow-visible",
+              voiceState === "processing" ? "bg-black/90 border border-white/10" : "bg-black border border-white/5",
+              "hover:bg-black",
+              voiceState === "success" && "animate-pulse-success"
+            )}
+            style={{
+              width: `${fw.expandedWidth}px`,
+              height: `${fw.pillSize}px`,
+              borderRadius: `${fw.pillSize / 2}px`,
+              paddingLeft: "12px",
+              paddingRight: "6px",
+              justifyContent: "flex-end",
+              transform: `scale(${scale})`,
+              transformOrigin: "top center",
+              pointerEvents: "auto",
+              transition: "transform 200ms ease-out",
+            }}
+          >
             <div 
-              onClick={handleVoicePress} 
-              className="cursor-pointer flex items-center justify-center flex-shrink-0"
+              onClick={isHoverOrActive ? handleVoicePress : undefined}
+              className={isHoverOrActive ? "cursor-pointer" : ""}
               style={{
-                width: "58px",
-                height: "18px",
-                opacity: isExpanded ? 1 : 0,
-                transition: "opacity 300ms ease-out",
+                ...(isHoverOrActive ? {} : { position: "absolute", left: 0, top: 0, visibility: "hidden" as const }),
+                width: "48px",
+                minWidth: 0,
+                height: "16px",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                opacity: isHoverOrActive ? 1 : 0,
+                pointerEvents: isHoverOrActive ? "auto" : "none",
+                marginRight: "10px",
+                marginLeft: "auto",
               }}
             >
               <VoiceButton 
                 state={voiceState}
-                onPress={() => {}}
+                onPress={handleVoicePress}
                 size="icon"
                 variant="ghost"
-                className="h-[18px] w-[58px] border-0 bg-transparent hover:bg-transparent p-0 m-0"
-                waveformClassName="!bg-transparent"
+                className="h-[16px] w-[48px] border-0 bg-transparent hover:bg-transparent p-0 m-0"
+                waveformClassName="!bg-transparent -translate-y-px"
+                waveformUpdateRate={16}
               />
             </div>
-          )}
-          
-          {/* Mode indicator dot - with breathing effect when idle */}
-          <div 
-            onClick={handleDotClick}
-            className={cn(
-              "w-1.5 h-1.5 rounded-full transition-all duration-200 flex-shrink-0 cursor-pointer",
-              MODES[selectedMode].color,
-              "hover:scale-125 hover:shadow-lg",
-              voiceState === "idle" && !isExpanded && "animate-breathe"
-            )}
-          />
+
+            <div 
+              ref={dotRef}
+              tabIndex={0}
+              role="button"
+              aria-haspopup="menu"
+              aria-expanded={isMenuOpen}
+              onClick={handleDotClick}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  if (isMenuClosing) return;
+                  if (isMenuOpen) {
+                    setIsMenuClosing(true);
+                    if (menuCloseTimeoutRef.current) clearTimeout(menuCloseTimeoutRef.current);
+                    menuCloseTimeoutRef.current = setTimeout(() => {
+                      menuCloseTimeoutRef.current = null;
+                      setIsMenuOpen(false);
+                      setIsMenuClosing(false);
+                      menuCloseCooldownRef.current = Date.now();
+                    }, 180);
+                  } else if (Date.now() - menuCloseCooldownRef.current >= MENU_CLOSE_COOLDOWN_MS) {
+                    setIsMenuOpen(true);
+                  }
+                }
+              }}
+              className={cn(
+                "w-[6px] h-[6px] rounded-full flex-shrink-0",
+                isMenuOpen ? "cursor-pointer" : "cursor-ns-resize",
+                "hover:scale-[1.4] active:scale-110",
+                "transition-[transform,box-shadow] duration-200 ease-out",
+                voiceState === "idle" && !isHoverOrActive && "animate-breathe"
+              )}
+              style={{
+                backgroundColor: selectedModeConfig?.color ?? "#10b981",
+                boxShadow: `0 0 8px 1px ${selectedModeConfig?.color ?? "#10b981"}40`,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = `0 0 6px 1px ${selectedModeConfig?.color ?? "#10b981"}60`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = `0 0 8px 1px ${selectedModeConfig?.color ?? "#10b981"}40`;
+              }}
+            />
+          </div>
+          </div>
         </div>
 
-        {/* Mode selection menu - drops down from widget */}
-        {isMenuOpen && (
+        {(isMenuOpen || isMenuClosing) && (
+          <div
+            className="absolute left-0 right-0 z-[40]"
+            style={{ top: "100%", height: "4px", marginTop: "-2px", pointerEvents: "auto" }}
+            onMouseEnter={cancelLeaveAndKeepHover}
+            aria-hidden
+          />
+        )}
+
+        {showApiKeyPrompt && !isMenuOpen && (
+          <div
+            className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 z-50 pointer-events-auto text-center"
+            role="alert"
+          >
+            <p className="text-[11px] text-white/80">
+              <button
+                type="button"
+                onClick={openSettingsToApi}
+                className="underline hover:no-underline text-white"
+                aria-label="Configure API key"
+              >
+                Configurer la clé API
+              </button>
+            </p>
+          </div>
+        )}
+
+        {/* Menu : une seule condition (isMenuOpen || isMenuClosing), entrée en fade-in */}
+        {(isMenuOpen || isMenuClosing) && (
           <div 
+            ref={menuRef}
+            role="menu"
+            onMouseEnter={cancelLeaveAndKeepHover}
             className={cn(
-              "absolute top-full mt-2 flex flex-col gap-0.5 p-1.5",
-              "bg-black/40 backdrop-blur-md border border-white/10",
-              "animate-in fade-in slide-in-from-top-2 duration-300 z-50"
+              "absolute top-full mt-2 flex flex-col gap-1 py-2.5 px-2",
+              "bg-black/95 border border-white/[0.06] rounded-lg z-50 backdrop-blur-sm",
+              "scrollbar-thin overflow-y-auto overflow-x-hidden",
+              "floating-menu-transition",
+              isMenuClosing ? "floating-menu-closing" : "floating-menu-open floating-menu-enter",
             )}
             style={{
-              borderRadius: "14px",
-              transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
-              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.2)",
+              width: fw.menuWidth,
+              minWidth: 0,
+              maxWidth: "100%",
+              maxHeight: `min(${fw.menuHeight}px, 60vh)`,
+              boxShadow: "0 2px 12px rgba(0, 0, 0, 0.12)",
               left: "50%",
               transform: "translateX(-50%)",
+              pointerEvents: isMenuClosing ? "none" : "auto",
+              scrollbarGutter: "stable",
             }}
           >
-            {(Object.entries(MODES) as [Mode, typeof MODES[Mode]][]).map(([mode, { label, color, desc }]) => (
+            {modes.length === 0 ? (
+              <div className="px-3 py-2 text-xs text-white/50">Chargement…</div>
+            ) : (
+            modes.map((mode, i) => (
               <button
-                key={mode}
-                onClick={() => handleModeClick(mode)}
+                key={mode.id}
+                role="menuitem"
+                onClick={() => handleModeSelect(mode)}
                 className={cn(
-                  "flex items-center gap-2 px-2.5 py-1.5 transition-all duration-200",
-                  "hover:bg-white/10 text-white/90 text-xs whitespace-nowrap",
-                  selectedMode === mode && "bg-white/10"
+                  "flex items-center gap-2 px-3 py-2 rounded-md text-left",
+                  "text-xs text-white/90 transition-colors duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                  "hover:bg-white/10",
+                  "floating-menu-enter",
+                  selectedMode === mode.id && "bg-white/10"
                 )}
                 style={{
-                  borderRadius: "10px",
                   transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+                  animationDelay: `${i * 28}ms`,
+                  animationDuration: "220ms",
                 }}
               >
-                <div className={cn("w-1.5 h-1.5 rounded-full", color)} />
-                <div className="flex-1 text-left">
-                  <div className="font-medium">{label}</div>
-                  <div className="text-[10px] text-white/50">{desc}</div>
+                <div
+                  className="shrink-0 rounded-full"
+                  style={{
+                    width: 6,
+                    height: 6,
+                    minWidth: 6,
+                    minHeight: 6,
+                    backgroundColor: mode.color,
+                  }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">{mode.name}</div>
+                  <div className="text-[10px] text-white/50 truncate">{mode.description}</div>
                 </div>
-                {selectedMode === mode && <Check className="w-3 h-3" />}
               </button>
-            ))}
+            )))
+            }
           </div>
         )}
       </div>

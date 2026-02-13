@@ -1,8 +1,8 @@
-# Quick Start: Ghosty Prompt Optimizer
+# Quick Start: Ghosty Request Optimizer
 
 **Target**: 2min onboarding. Zero fluff.
 
-**CRITICAL**: Ghosty generates PROMPTS, not final content. You paste prompts to ChatGPT/Claude.
+**CRITICAL**: Ghosty generates REQUESTS, not final content. You paste the optimized request to ChatGPT/Claude.
 
 ---
 
@@ -12,12 +12,22 @@
 # 1. Install
 npm install
 
-# 2. Configure API key
+# 2. Configure API key (choose one)
+# Option A: environment variable (required on Linux/Windows; optional on macOS)
 export OPENAI_API_KEY="sk-..."
+
+# Option B: in the app after launch (macOS only): Paramètres (Settings) > API Keys > Add key
+# On Linux/Windows, only Option A is available (one key via OPENAI_API_KEY).
 
 # 3. Run
 npm run tauri:dev
 ```
+
+**Données envoyées à OpenAI** : les enregistrements audio et les textes sont envoyés à OpenAI pour la transcription (Whisper) et la transformation (GPT-4o-mini). Rien n’est envoyé à un autre serveur. Ne partagez pas votre clé API et révoquez-la en cas de fuite (OpenAI Dashboard).
+
+**Permissions** : Ghosty a besoin du micro (enregistrement) et des raccourcis clavier globaux (ex. Ctrl+Shift+Space) pour fonctionner. Sur macOS, autorisez micro et accessibilité dans Réglages Système si demandé.
+
+**Télécharger l'app (sans compiler)** : [Releases](https://github.com/gui2eellav-largo/ghosty/releases) ou [Actions](https://github.com/gui2eellav-largo/ghosty/actions) → dernier run → Artifacts. Sinon : `npm run tauri:build` (voir README). Sur macOS, si « développeur non identifié » s'affiche : clic droit sur l'app → **Ouvrir** (puis confirmer).
 
 ---
 
@@ -30,11 +40,11 @@ npm run tauri:dev
    - Ou lance l'app **Terminal** (macOS) / **Invite de commandes** (Windows).
 
 2. **Va dans le dossier du projet**  
-   Tape exactement la ligne suivante (sans les guillemets autour de toute la ligne, et sans \`\`\`bash). Puis **Entrée**.
+   Tape la ligne suivante en remplaçant le chemin par l’emplacement de ton projet. Puis **Entrée**.
    ```
-   cd "/Users/guillaumevallee/ ghosty"
+   cd /chemin/vers/ghosty
    ```
-   Si ton projet est ailleurs, remplace le chemin par le bon (ex. \`cd ~/ghosty\`).
+   Exemple : \`cd ~/Desktop/ghosty\` ou \`cd ~/ghosty\`.
 
 3. **Démarre l'app**  
    Tape la ligne ci-dessous (sans \`\`\`bash). Puis **Entrée**.
@@ -69,37 +79,37 @@ npm run tauri:dev
 1. `Ctrl+Shift+Space` → Glass menu
 2. Select mode (arrows + Enter)
 3. Speak vaguely
-4. Release → **Optimized prompt** in clipboard
+4. Release → **Optimized request** in clipboard
 5. `Ctrl+V` in ChatGPT/Claude
 
 ### First Test
-- Select **"Prompt Enhancer (Adaptive)"**
+- Select **"Shape"** (or **Light edit** for lighter touch)
 - Say: "Create a function that sorts an array"
-- Observe: vague → precise AI-ready prompt
+- Observe: vague → precise AI-ready request
 - Paste in ChatGPT → Get code
 
 ---
 
 ## Understanding Modes
 
-### Mode = Prompt Optimizer
+### Mode = Request Optimizer
 
 **Input**: Raw voice transcription  
-**Output**: AI-ready optimized prompt (for ChatGPT/Claude)
+**Output**: AI-ready optimized request (for ChatGPT/Claude)
 
 **NOT**: Final content generation
 
-**Mechanism**: Magic keywords → GPT-4o-mini → Perfect prompt for AI
+**Mechanism**: Magic keywords → GPT-4o-mini → Perfect request for AI
 
 ### Example
 
-**Mode**: Email Generation Prompt  
+**Mode**: Email Generation Request
 **Keywords**: `Crystallize intent. Specify tone/structure.`
 
 **Voice input**:
 > "Hey I need to follow up with the team about yesterday's meeting we discussed the API changes and need their feedback by Friday"
 
-**Ghosty output (optimized prompt)**:
+**Ghosty output (optimized request)**:
 ```
 Write a professional follow-up email to the team regarding yesterday's meeting.
 
@@ -120,21 +130,17 @@ Max 3 paragraphs
 
 ---
 
-## Built-in Modes (9)
+## Built-in Modes (5)
 
-### General Enhancement
-1. **Adaptive** - `First principles. Elucidate intent. Adaptive length.`
+By level of intervention (light → full):
 
-### Specific Use Cases
-2. **Email Prompt** - `Crystallize intent. Specify tone/structure.`
-3. **Analysis Prompt** - `Methodology (Five Whys/MECE/Forensic).`
-4. **Documentation Prompt** - `Distill elements. MECE. Specify format.`
-5. **Decision Prompt** - `Trade-off mapping. MECE options.`
-6. **Ideation Prompt** - `MECE breakdown. Different angles.`
-7. **Code Prompt** - `Specify: language, constraints, tests.`
-8. **Review Prompt** - `Specify type. Criteria explicit.`
+1. **Hands-off** — Change as little as possible. Clean transcription, minor syntax.
+2. **Light edit** — Improve without altering the voice. Polished, ready-to-send.
+3. **Shape** — Structure and polish. Professional, organized (default).
+4. **Reframe** — Frame and reason. Expert-level analysis.
+5. **Build** — Full request from A to Z. Project scoping, full plan.
 
-**All modes**: Generate prompts for AI, NOT final content.
+**All modes**: Generate requests for AI, NOT final content. Each outputs a short reflection (visible in history).
 
 ---
 
@@ -212,28 +218,28 @@ Max 3 paragraphs
 
 ## Common Workflows
 
-### 1. Get Perfect ChatGPT Prompt
-- Mode: **Prompt Enhancer (Adaptive)**
+### 1. Get Perfect ChatGPT Request
+- Mode: **Shape** (or **Reframe** for deeper analysis)
 - Speak your vague idea
-- Get optimized prompt
+- Get optimized request
 - Copy → Paste to ChatGPT
 
-### 2. Email Generation
-- Mode: **Email Prompt**
-- Speak key email points
-- Get structured email generation prompt
-- Paste to ChatGPT → Get polished email
+### 2. Quick polish
+- Mode: **Light edit**
+- Speak key points
+- Get ready-to-send text or request
+- Paste to ChatGPT if needed
 
-### 3. Problem Analysis
-- Mode: **Analysis Prompt**
+### 3. Problem analysis
+- Mode: **Reframe**
 - Describe the problem
-- Get analysis framework prompt
+- Get framed analysis request
 - Paste to ChatGPT → Get root cause analysis
 
-### 4. Project Planning
-- Mode: **Documentation Prompt**
+### 4. Project planning
+- Mode: **Build**
 - Speak project idea
-- Get documentation generation prompt
+- Get full scoping request
 - Paste to ChatGPT → Get structured brief
 
 ---
@@ -241,14 +247,14 @@ Max 3 paragraphs
 ## Troubleshooting
 
 ### No transcription
-- Check API key: `echo $OPENAI_API_KEY`
-- Verify microphone permissions
-- Check terminal for errors
+- **Clé API** : vérifiez dans l’app (Paramètres > API Keys) ou en terminal : `echo $OPENAI_API_KEY`
+- Autorisez le micro (Réglages Système > Confidentialité et sécurité)
+- Vérifiez les erreurs dans le terminal
 
 ### Poor transformation quality
 - Test with **different mode**
 - Speak more clearly (structured sentences)
-- Check mode prompt (too generic?)
+- Check mode request (too generic?)
 
 ### App crashes
 - Check Rust logs in terminal
@@ -292,7 +298,7 @@ Max 3 paragraphs
 ## Next Steps
 
 1. **Try it**: Run `npm run tauri:dev`
-2. **Test modes**: Try all 9 built-in modes
+2. **Test modes**: Try all 5 built-in modes (Hands-off → Build)
 3. **Create custom**: Design mode for your workflow
 4. **Deep dive**: Read methodology docs
 5. **Contribute**: Share your best modes
@@ -301,4 +307,4 @@ Max 3 paragraphs
 
 **Time to productivity**: 5 minutes  
 **Mastery**: 1 week daily use  
-**ROI**: 10-30min saved per day (voice → optimized text)
+**ROI**: 10-30min saved per day (voice → optimized request)

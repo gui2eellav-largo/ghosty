@@ -1,14 +1,14 @@
 # Ghosty
 
-Voice-to-text + AI prompt optimization. Dense prompting methodology. Meta-tool for AI interactions.
+Voice-to-text + AI request optimization. Dense request methodology. Meta-tool for AI interactions.
 
 ## Core Concept
 
-**Problem**: Vague voice input → poor AI prompts → suboptimal results.
+**Problem**: Vague voice input → vague requests → suboptimal results.
 
-**Solution**: Voice → Whisper → GPT-4o-mini prompt enhancement → Optimized prompt → ChatGPT/Claude → Quality output.
+**Solution**: Voice → Whisper → GPT-4o-mini request enhancement → Optimized request → ChatGPT/Claude → Quality output.
 
-**Ghosty is a prompt optimizer**, not a content generator.
+**Ghosty is a request optimizer**, not a content generator.
 
 ### Flow
 
@@ -17,7 +17,7 @@ User speaks vaguely
     ↓
 Whisper transcription
     ↓
-GPT-4o-mini enhances → Optimized prompt
+GPT-4o-mini enhances → Optimized request
     ↓
 Clipboard (auto-copy)
     ↓
@@ -26,7 +26,7 @@ User pastes to ChatGPT/Claude
 AI generates final content
 ```
 
-**Innovation**: Magic keywords. Dense prompting. Maximum semantic efficiency.
+**Innovation**: Magic keywords. Dense requests. Maximum semantic efficiency.
 
 ---
 
@@ -38,31 +38,26 @@ AI generates final content
 - Whisper API transcription (16kHz, accurate)
 
 ### AI Transformation
-- GPT-4o-mini prompt enhancement (NOT content generation)
+- GPT-4o-mini request enhancement (NOT content generation)
 - Mode-based optimization
 - Magic keywords methodology
 - Auto-copy to clipboard
 - Cost: ~$0.0015/command
 
 ### Mode System
-- **9 built-in modes** (prompt enhancement focus)
+- **4 built-in modes** (by level of intervention): Direct, Shape, Reframe, Build
 - Custom modes (user-defined)
 - Glass menu (quick selection during recording)
-- Categories: General Enhancement, Email, Analysis, Documentation, Decision, Ideation, Code, Review
+- Reflection in history for every mode
 
 ### Built-in Modes
 
-1. **Pure Transcription** - Zero transformation (raw Whisper output)
-2. **Prompt Enhancer (Adaptive)** - `First principles. Elucidate intent. Adaptive length.`
-3. **Email Generation Prompt** - `Crystallize intent. Specify tone/structure.`
-4. **Analysis Prompt** - `Specify methodology (Five Whys/MECE/Forensic).`
-5. **Documentation Prompt** - `Distill elements. MECE. Specify format.`
-6. **Decision Framework Prompt** - `Trade-off mapping. MECE options.`
-7. **Ideation Prompt** - `MECE breakdown. Different angles.`
-8. **Code Task Prompt** - `Specify: language, constraints, edge cases, tests.`
-9. **Review Prompt** - `Specify review type. Criteria explicit.`
+1. **Direct** — Your words, light formatting only. No LLM; transcription only.
+2. **Shape** — Structure and polish. Professional, organized (default).
+3. **Reframe** — Frame and reason. Expert-level analysis.
+4. **Build** — Full request from A to Z. Project scoping, full plan.
 
-**All modes output**: Optimized prompt ready for ChatGPT/Claude (NOT final content).
+**All modes output**: Optimized request ready for ChatGPT/Claude (NOT final content). Each mode adds a short reflection (visible in history).
 
 ---
 
@@ -81,7 +76,15 @@ AI generates final content
 
 **APIs**:
 - OpenAI Whisper (transcription)
-- OpenAI GPT-4o-mini (prompt optimization)
+- OpenAI GPT-4o-mini (request optimization)
+
+### Plateformes
+
+- **macOS** : support complet (keychain pour les clés, multi-clés dans l’app, Services « clic droit », raccourcis globaux, copier/coller).
+- **Linux / Windows** : l’app peut être compilée et lancée (`npm run tauri:build` avec la cible voulue), mais le support est **limité** :
+  - **Clé API** : une seule clé, uniquement via la variable d’environnement `OPENAI_API_KEY`. La gestion des clés dans Paramètres > API Keys (ajout, suppression, multi-clés) est **macOS uniquement** (keychain).
+  - **Services** (clic droit dans les apps) : macOS uniquement.
+  - Raccourcis globaux, enregistrement, transcription et LLM fonctionnent dès que `OPENAI_API_KEY` est définie.
 
 ---
 
@@ -117,6 +120,16 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
+Les binaires et le `.app` (macOS) sont dans `src-tauri/target/release/bundle/` (ex. `macos/Ghosty.app`, ou `.dmg` selon la cible).
+
+### Télécharger l'app (sans compiler)
+
+- **Compiler soi-même** : `npm run tauri:build` (voir ci-dessus). L’app est dans `src-tauri/target/release/bundle/` (ex. `macos/Ghosty.app`).
+- **Releases** : [Releases GitHub](https://github.com/gui2eellav-largo/ghosty/releases) — téléchargez le `.dmg` ou l’archive (quand une release est publiée).
+- **Sans release** : [Actions](https://github.com/gui2eellav-largo/ghosty/actions) → dernier run réussi → **Artifacts** → `ghosty-macos` (contient le `.app` macOS). Voir [Créer une release](docs/CREER-UNE-RELEASE.md) pour publier la première release.
+
+**Ouvrir l'app sur macOS** : si Ghosty n'est pas signée, macOS peut afficher « l'app d'un développeur non identifié ». Pour lancer quand même : **clic droit** sur l'app (ou le .app) → **Ouvrir** → confirmer. Une seule fois par téléchargement. Pour signer et notariser (éviter ce message), voir [Préparation à la production](docs/PRODUCTION-READINESS.md#22-signature-et-notarisation-macos) et `signingIdentity` dans `tauri.conf.json`.
+
 ---
 
 ## Usage
@@ -125,7 +138,7 @@ npm run tauri:build
 1. Press `Ctrl+Shift+Space` → Glass menu appears
 2. Select mode (arrows + Enter) or keep current
 3. Speak your vague idea
-4. Release → Whisper transcription → GPT-4o-mini prompt optimization → **Optimized prompt** in clipboard
+4. Release → Whisper transcription → GPT-4o-mini request optimization → **Optimized request** in clipboard
 5. `Ctrl+V` in ChatGPT/Claude → Get final content
 
 ### Mode Selection
@@ -176,17 +189,18 @@ Max 3 paragraphs.
 
 **Guidelines**:
 - 2-4 magic keywords max
-- Reference `docs/GHOSTY-MODES-METHODOLOGY.md`
+- Reference `docs/internal/GHOSTY-MODES-METHODOLOGY.md` (doc interne)
 - Test with varied inputs
 
 ---
 
 ## Documentation
 
-### Core Docs
-- **[GHOSTY-MODES-METHODOLOGY.md](docs/GHOSTY-MODES-METHODOLOGY.md)** - Mode design, magic keywords, examples
-- **[prompting-dense-library.md](docs/prompting-dense-library.md)** - Systematic dense prompting reference
-- **[magic-keywords-prompt-engineering.md](docs/magic-keywords-prompt-engineering.md)** - Magic keywords theory & library
+- **[docs/README.md](docs/README.md)** — Index de la documentation (démarrage, production).
+- **[Guide de démarrage (Quick Start)](docs/QUICKSTART.md)** — Installer, configurer la clé API, lancer l’app.
+- **[Préparation à la production](docs/PRODUCTION-READINESS.md)** — Sécurité, distribution, checklist avant mise en ligne.
+
+La doc interne (méthodologie modes, audits, etc.) est dans **docs/internal/**.
 
 ### Architecture
 ```
@@ -194,7 +208,7 @@ Voice Input
     ↓
 Whisper API (transcription)
     ↓
-GPT-4o-mini (transformation via mode prompt)
+GPT-4o-mini (transformation via mode)
     ↓
 Clipboard / Active Field
 ```
@@ -265,7 +279,7 @@ ghosty/
 3. Add to `DEFAULT_MODES` in `src/main.ts`
 4. Test with varied inputs
 5. Measure KPIs (density, relevance, structure)
-6. Document in `GHOSTY-MODES-METHODOLOGY.md`
+6. Document in `docs/internal/GHOSTY-MODES-METHODOLOGY.md`
 
 ---
 
@@ -274,9 +288,9 @@ ghosty/
 ### Phase 1 (Current)
 - ✅ Whisper transcription
 - ✅ GPT-4o-mini transformation
-- ✅ Mode system (9 built-in)
+- ✅ Mode system (5 built-in: Hands-off → Build)
 - ✅ Glass menu UI
-- ✅ Dense prompting methodology
+- ✅ Dense request methodology
 
 ### Phase 2
 - [ ] Streaming responses (perceived latency ↓)
@@ -295,14 +309,14 @@ ghosty/
 ## Contributing
 
 ### Guidelines
-- Follow dense prompting methodology
+- Follow dense request methodology
 - Test new modes (A/B protocol)
 - Measure KPIs before/after
 - Document magic keywords used
 
 ### Mode Contribution
 1. Identify use case
-2. Design prompt (2-4 keywords)
+2. Design request (2-4 keywords)
 3. Test (10+ varied inputs)
 4. Submit PR with:
    - Mode definition
@@ -319,9 +333,9 @@ MIT
 
 ## Credits
 
-**Magic Keywords Methodology**: Inspired by academic prompting research + empirical testing.
+**Magic Keywords Methodology**: Inspired by academic request-design research + empirical testing.
 
-**Dense Prompting**: Systematic semantic compression. Maximum efficiency.
+**Dense requests**: Systematic semantic compression. Maximum efficiency.
 
 ---
 

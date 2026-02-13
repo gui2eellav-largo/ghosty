@@ -9,7 +9,7 @@ impl Default for ActivePromptState {
     fn default() -> Self {
         Self {
             prompt: Mutex::new(None),
-            mode: Mutex::new(Some("medium".to_string())),
+            mode: Mutex::new(Some("light".to_string())),
         }
     }
 }

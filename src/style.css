@@ -12,7 +12,8 @@
   --color-secondary: hsl(240 4.8% 95.9%);
   --color-secondary-foreground: hsl(240 5.9% 10%);
   --color-muted: hsl(240 4.8% 95.9%);
-  --color-muted-foreground: hsl(240 3.8% 46.1%);
+  /* WCAG AA: ≥4.5:1 for normal text. 46% was ~2:1; 22% lightness gives ~4.5:1 on white */
+  --color-muted-foreground: hsl(240 4% 22%);
   --color-accent: hsl(240 4.8% 95.9%);
   --color-accent-foreground: hsl(240 5.9% 10%);
   --color-destructive: hsl(0 84.2% 60.2%);
@@ -57,7 +58,12 @@
   }
 }
 
-/* Floating window overrides */
+/*
+ * Floating window: document de la fenêtre "floating" (label Tauri).
+ * La classe est sur html/body dès que cette fenêtre est ouverte, pas liée au menu.
+ * Fond transparent pour que seule la barre (pill) soit visible; la fenêtre ne doit pas
+ * peindre un bloc opaque (sinon on bloque les clics en dessous).
+ */
 html.floating-window,
 html.floating-window body,
 html.floating-window body #app {
@@ -67,33 +73,40 @@ html.floating-window body #app {
   outline: none !important;
   box-shadow: none !important;
   overflow: visible !important;
-  height: 100vh !important;
-  width: 100vw !important;
+  min-height: 100%;
+  min-width: 100%;
+  height: 100%;
+  width: 100%;
   user-select: none !important;
   overscroll-behavior: none !important;
   touch-action: none !important;
 }
 
+/* Conteneur: ne pas capter les clics (seul le widget oui). Transparent. */
+/* contain + isolation pour limiter le repaint global au resize (évite flash/transparence 1 frame). */
 .floating-bar-container {
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-top: 0;
-  height: 100%;
+  min-height: 100%;
   width: 100%;
+  padding-top: 0;
   pointer-events: none;
   background: transparent !important;
   overflow: visible !important;
+  contain: layout paint;
+  isolation: isolate;
+}
+
+/* Enfants gèrent eux-mêmes pointer-events (pill + menu = auto, reste = none) pour click-through. */
+.floating-bar-container > * {
+  pointer-events: none;
 }
 
 .backface-hidden {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   -webkit-font-smoothing: subpixel-antialiased;
-}
-
-.floating-bar-container > * {
-  pointer-events: auto;
 }
 
 @keyframes pulse-red {
@@ -197,8 +210,84 @@ html.floating-window body #app {
   transition-timing-function: cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
 
+/* Menu open: spring curve instead of linear */
+.menu-spring-in {
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Floating menu: entrée plus lente pour éviter l’impression de flash (cause: 150ms trop court + ease-out brutal). */
+@keyframes floating-menu-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.floating-menu-enter {
+  animation: floating-menu-enter 280ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+/* Transition partagée (fermeture + cohérence durée). */
+.floating-menu-transition {
+  transition: opacity 0.22s cubic-bezier(0.33, 1, 0.68, 1), transform 0.22s cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.floating-menu-open {
+  transform: translateX(-50%);
+}
+
+.floating-menu-closing {
+  opacity: 0;
+  transform: translateX(-50%);
+}
+
 /* Waveform bars smooth transition */
 .waveform-bar {
   transition: height 0.1s ease-out;
 }
 
+/* Custom scrollbar styles */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Hide scrollbar */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* History output: multi-line truncation with ellipsis */
+.history-output-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+  overflow: hidden;
+  word-break: break-word;
+}

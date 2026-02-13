@@ -1,68 +1,83 @@
-use std::path::Path;
+use crate::http_client;
 use std::time::Duration;
 
 const MAX_RETRIES: u32 = 3;
-const REQUEST_TIMEOUT_SECS: u64 = 30;
 
-pub fn transcribe_wav(path: &Path) -> Result<String, String> {
-    transcribe_wav_with_retry(path, MAX_RETRIES)
-}
-
-fn transcribe_wav_with_retry(path: &Path, max_retries: u32) -> Result<String, String> {
+/// Transcription async à partir du WAV en mémoire. Retries avec backoff.
+pub async fn transcribe_bytes(
+    wav_bytes: Vec<u8>,
+    app: &tauri::AppHandle,
+) -> Result<String, String> {
     let mut attempt = 0;
-
     loop {
-        match transcribe_wav_internal(path) {
+        match transcribe_bytes_internal(&wav_bytes, app).await {
             Ok(result) => return Ok(result),
-            Err(e) if attempt < max_retries => {
+            Err(e) if attempt < MAX_RETRIES => {
                 attempt += 1;
                 let backoff = Duration::from_millis(100 * 2u64.pow(attempt));
-                eprintln!("Transcription tentative {}/{} échouée: {}", attempt, max_retries, e);
-                eprintln!("Retry dans {:?}...", backoff);
-                std::thread::sleep(backoff);
+                eprintln!(
+                    "Transcription tentative {}/{} échouée: {}",
+                    attempt, MAX_RETRIES, e
+                );
+                tokio::time::sleep(backoff).await;
             }
             Err(e) => {
-                return Err(format!("Échec transcription après {} tentatives: {}", max_retries, e));
+                return Err(format!(
+                    "Échec transcription après {} tentatives: {}",
+                    MAX_RETRIES, e
+                ));
             }
         }
     }
 }
 
-fn transcribe_wav_internal(path: &Path) -> Result<String, String> {
+async fn transcribe_bytes_internal(
+    wav_bytes: &[u8],
+    app: &tauri::AppHandle,
+) -> Result<String, String> {
     let api_key = crate::secrets::get_api_key_cached()?;
+    let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
+    let timeout_secs = prefs.transcription.timeout_secs.clamp(10, 120);
+    let model = prefs.transcription.model.clone();
+    let base_url = prefs
+        .advanced
+        .transcription_base_url
+        .as_deref()
+        .unwrap_or("https://api.openai.com")
+        .trim_end_matches('/');
+    let url = format!("{}/v1/audio/transcriptions", base_url);
 
-    if !path.exists() {
-        return Err(format!("Fichier audio introuvable: {}", path.display()));
-    }
-    let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
-    let file_name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("audio.wav");
-    let part = reqwest::blocking::multipart::Part::reader(file)
-        .file_name(file_name.to_string())
+    let part = reqwest::multipart::Part::bytes(wav_bytes.to_vec())
+        .file_name("audio.wav")
         .mime_str("audio/wav")
         .map_err(|e| e.to_string())?;
 
-    let form = reqwest::blocking::multipart::Form::new()
+    let mut form = reqwest::multipart::Form::new()
         .part("file", part)
-        .text("model", "whisper-1");
+        .text("model", model);
+    if let Some(lang) = &prefs.transcription.language {
+        if !lang.is_empty() {
+            form = form.text("language", lang.clone());
+        }
+    }
 
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
-        .build()
-        .map_err(|e| format!("Erreur création client HTTP: {}", e))?;
-    
-    let resp = client
-        .post("https://api.openai.com/v1/audio/transcriptions")
+    let dict_prompt = crate::dictionary::build_whisper_prompt(app);
+    if !dict_prompt.is_empty() {
+        form = form.text("prompt", dict_prompt);
+    }
+
+    let resp = http_client::client()
+        .post(&url)
         .header("Authorization", format!("Bearer {}", api_key))
         .multipart(form)
+        .timeout(Duration::from_secs(timeout_secs))
         .send()
+        .await
         .map_err(|e| format!("Erreur requête API Whisper: {}", e))?;
 
     if !resp.status().is_success() {
         let status = resp.status();
-        let body = resp.text().unwrap_or_default();
+        let body = resp.text().await.unwrap_or_default();
         return Err(format!("API error {}: {}", status, body));
     }
 
@@ -70,6 +85,6 @@ fn transcribe_wav_internal(path: &Path) -> Result<String, String> {
     struct Transcription {
         text: String,
     }
-    let out: Transcription = resp.json().map_err(|e| e.to_string())?;
+    let out: Transcription = resp.json().await.map_err(|e| e.to_string())?;
     Ok(out.text.trim().to_string())
 }
