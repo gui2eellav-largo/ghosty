@@ -87,7 +87,7 @@ jobs:
         working-directory: src-tauri
         run: |
           cargo install cargo-audit
-          cargo audit --allow RUSTSEC-2024-0429
+          cargo audit --ignore RUSTSEC-2024-0429
 
   build-tauri:
     name: Build Tauri (macOS)
