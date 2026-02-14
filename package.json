@@ -13,7 +13,7 @@
     "tauri:dev": "tauri dev",
     "tauri:dev:no-watch": "tauri dev --no-watch",
     "tauri:dev:fresh": "lsof -ti :5173 | xargs kill -9 2>/dev/null; sleep 1; tauri dev",
-    "tauri:build": "tauri build --ci false"
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
