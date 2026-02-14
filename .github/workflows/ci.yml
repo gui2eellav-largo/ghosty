@@ -109,6 +109,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Generate placeholder icons if missing
+        run: |
+          if [ ! -f src-tauri/icons/32x32.png ]; then
+            echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" | base64 -d > /tmp/1x1.png
+            sips -z 1024 1024 /tmp/1x1.png --out /tmp/icon1024.png
+            npx tauri icon /tmp/icon1024.png
+          fi
+      
       - name: Build Tauri app
         run: npm run tauri:build
         env:
