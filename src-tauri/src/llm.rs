@@ -58,7 +58,7 @@ CRITICAL RULES:
 - Language: Output the improved system prompt in the same language as the input. If the input is in French, the improved prompt must be in French.
 - One-line intents: If the input is a short one-line intent (e.g. "transform into Slack style", "rewrite in teen slang"), the improved prompt MUST expand it into a complete, operational instruction. Define what the style/format means for the model (tone, register, typical traits, what to preserve). The result must be a system prompt that another model can follow without guessing. Do not only add meta phrases like "ready to copy-paste"; add concrete instructions (how to achieve the style, what to change).
 - If the current prompt is already long and operational, keep it tight: clean up and add 1–2 precision points. Do not over-expand.
-- Undefined references ("this", "my", "the X"): the improved prompt should instruct the model to add [Define: X] when something isn't stated. Never assume what isn't stated.
+- Undefined references ("this", "my", "the X"): the improved prompt should instruct the model to infer the most likely intent from context. Never leave placeholders or ask for clarification — work with what's given.
 
 PROCESS (apply only where relevant to the user's intent):
 1. Intent: What does the user actually need? Infer the real goal. Do not add a different goal (e.g. "actionable" when they only asked for "Slack style").
@@ -71,11 +71,13 @@ OUTPUT:
 
 /// Transformation async avec streaming : accumule le contenu puis retourne le texte complet.
 /// Si `cancel` est déclenché, retourne Err("Annulé").
+/// `temperature_override` permet de forcer une température pour les modes built-in.
 pub async fn transform_text_streaming(
     text: &str,
     mode_prompt: &str,
     app: &tauri::AppHandle,
     cancel: tokio_util::sync::CancellationToken,
+    temperature_override: Option<f32>,
 ) -> Result<String, String> {
     if mode_prompt.is_empty() {
         return Ok(text.to_string());
@@ -83,7 +85,7 @@ pub async fn transform_text_streaming(
 
     let mut attempt = 0;
     loop {
-        match transform_text_streaming_internal(text, mode_prompt, app, cancel.clone()).await {
+        match transform_text_streaming_internal(text, mode_prompt, app, cancel.clone(), temperature_override).await {
             Ok(result) => return Ok(result),
             Err(e) if e == "Annulé" => return Err(e),
             Err(e) if attempt < MAX_RETRIES => {
@@ -114,6 +116,7 @@ async fn transform_text_streaming_internal(
     mode_prompt: &str,
     app: &tauri::AppHandle,
     cancel: tokio_util::sync::CancellationToken,
+    temperature_override: Option<f32>,
 ) -> Result<String, String> {
     let api_key = crate::secrets::get_api_key_cached()?;
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
@@ -125,6 +128,8 @@ async fn transform_text_streaming_internal(
         .unwrap_or("https://api.openai.com")
         .trim_end_matches('/');
     let url = format!("{}/v1/chat/completions", base_url);
+
+    let temperature = temperature_override.unwrap_or(prefs.llm.temperature).clamp(0.0, 2.0);
 
     let request = ChatRequest {
         model: prefs.llm.model.clone(),
@@ -138,7 +143,7 @@ async fn transform_text_streaming_internal(
                 content: text.to_string(),
             },
         ],
-        temperature: prefs.llm.temperature.clamp(0.0, 2.0),
+        temperature,
         max_tokens: prefs.llm.max_tokens.clamp(100, 4096),
         stream: true,
     };

@@ -235,7 +235,20 @@ async fn run_pipeline(
         .and_then(|s| s.get_mode().ok())
         .flatten();
 
+    // Fix 3: Validate transcription before sending to LLM
+    // If too short (< 3 words), skip LLM — avoids transforming hallucinations
+    let word_count = transcribed_text.split_whitespace().count();
+    let is_builtin = matches!(
+        active_mode.as_deref(),
+        Some("light") | Some("medium") | Some("strong") | Some("full")
+    );
+    // Built-in modes use temperature 0.2 for fidelity (Fix 2)
+    let temp_override = if is_builtin { Some(0.2_f32) } else { None };
+
     let final_text = if active_mode.as_deref() == Some("light") {
+        light_fast_path(&transcribed_text)
+    } else if word_count < 3 {
+        // Too short for meaningful LLM transformation — just clean up
         light_fast_path(&transcribed_text)
     } else if let Some(ref prompt) = mode_prompt {
         if !prompt.is_empty() {
@@ -244,6 +257,7 @@ async fn run_pipeline(
                 prompt,
                 &app,
                 cancel.clone(),
+                temp_override,
             )
             .await
             {

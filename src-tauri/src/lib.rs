@@ -4,6 +4,7 @@ const ENABLE_RIGHT_CLICK_SERVICES: bool = true;
 mod accessibility;
 mod audio;
 mod clipboard;
+mod correction_detector;
 mod dictionary;
 mod errors;
 mod hotkey;
@@ -243,7 +244,7 @@ pub async fn run_transform_selection(app: tauri::AppHandle, mode_id: String) -> 
     let result = if prompt.is_empty() {
         Ok(text.clone())
     } else {
-        crate::llm::transform_text_streaming(&text, &prompt, &app, cancel).await
+        crate::llm::transform_text_streaming(&text, &prompt, &app, cancel, None).await
     };
     let full = result.map_err(|e| e.to_string())?;
     let output = if full.contains("---REFLECTION---") {
@@ -315,6 +316,14 @@ fn set_active_prompt(
 #[tauri::command]
 async fn improve_system_prompt(app: tauri::AppHandle, prompt: String) -> Result<String, String> {
     crate::llm::improve_system_prompt(&prompt, &app).await
+}
+
+#[tauri::command]
+async fn transform_text_direct(app: tauri::AppHandle, text: String, prompt: String) -> Result<String, String> {
+    let cancel = tokio_util::sync::CancellationToken::new();
+    let result = crate::llm::transform_text_streaming(&text, &prompt, &app, cancel, None).await?;
+    let output = result.split("---REFLECTION---").next().unwrap_or(&result).trim().to_string();
+    Ok(output)
 }
 
 #[tauri::command]
@@ -606,6 +615,20 @@ fn update_app_preferences(
     Ok(prefs)
 }
 
+#[tauri::command]
+fn get_first_run_done(app: tauri::AppHandle) -> bool {
+    preferences::get_preferences(&app)
+        .map(|p| p.general.first_run_done)
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+fn set_first_run_done(app: tauri::AppHandle) -> Result<(), String> {
+    let mut prefs = preferences::get_preferences(&app)?;
+    prefs.general.first_run_done = true;
+    preferences::set_preferences(&app, &prefs)
+}
+
 // ============================================================================
 // MODES
 // ============================================================================
@@ -737,6 +760,49 @@ fn export_dictionary_entries(app: tauri::AppHandle) -> Result<String, String> {
     dictionary::export_entries(&app)
 }
 
+/// Compare la dernière transcription au contenu actuel du clipboard.
+/// Retourne les paires (misspelling, correction) candidates pour le dictionnaire.
+#[tauri::command]
+fn analyze_clipboard_correction(
+    app: tauri::AppHandle,
+    state: tauri::State<LastOutputState>,
+) -> Result<Vec<correction_detector::WordCandidate>, String> {
+    let last_output = {
+        let guard = state.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        match guard.as_ref() {
+            Some(s) => s.clone(),
+            None => return Ok(vec![]),
+        }
+    };
+
+    let clipboard_text = match clipboard::get_clipboard_text(&app) {
+        Ok(text) => text,
+        Err(_) => return Ok(vec![]),
+    };
+
+    let clipboard_trimmed = clipboard_text.trim().to_string();
+    if clipboard_trimmed.is_empty() || clipboard_trimmed == last_output.trim() {
+        return Ok(vec![]);
+    }
+
+    let mut candidates =
+        correction_detector::detect_corrections(&last_output, &clipboard_trimmed);
+
+    // Filtrer les mots déjà présents dans le dictionnaire
+    let existing_entries = dictionary::get_all_entries(&app).unwrap_or_default();
+    let existing_words: std::collections::HashSet<String> = existing_entries
+        .iter()
+        .flat_map(|e| {
+            std::iter::once(e.word.to_lowercase())
+                .chain(e.misspellings.iter().map(|m| m.to_lowercase()))
+        })
+        .collect();
+
+    candidates.retain(|c| !existing_words.contains(&c.correction.to_lowercase()));
+
+    Ok(candidates)
+}
+
 /// Teste si une combinaison de touches est disponible (non prise par le système ou une autre app).
 /// Enregistre puis désenregistre le raccourci pour vérifier.
 #[tauri::command]
@@ -865,6 +931,36 @@ fn run_shortcut_action(
         }
         _ => {}
     }
+}
+
+#[derive(serde::Serialize)]
+pub struct UpdateInfo {
+    pub available: bool,
+    pub version: Option<String>,
+    pub body: Option<String>,
+}
+
+#[tauri::command]
+async fn check_update(app: tauri::AppHandle) -> Result<UpdateInfo, String> {
+    use tauri_plugin_updater::UpdaterExt;
+    match app.updater().map_err(|e| e.to_string())?.check().await {
+        Ok(Some(update)) => Ok(UpdateInfo {
+            available: true,
+            version: Some(update.version.clone()),
+            body: update.body.clone(),
+        }),
+        Ok(None) => Ok(UpdateInfo { available: false, version: None, body: None }),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+async fn install_update(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri_plugin_updater::UpdaterExt;
+    if let Some(update) = app.updater().map_err(|e| e.to_string())?.check().await.map_err(|e| e.to_string())? {
+        update.download_and_install(|_, _| {}, || {}).await.map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1223,6 +1319,7 @@ pub fn run() {
             list_audio_input_devices,
             transform_selection,
             improve_system_prompt,
+            transform_text_direct,
             list_installed_ghosty_services,
             open_services_folder,
             install_ghosty_services,
@@ -1231,9 +1328,15 @@ pub fn run() {
             update_dictionary_entry,
             delete_dictionary_entry,
             import_dictionary_entries,
-            export_dictionary_entries
+            export_dictionary_entries,
+            analyze_clipboard_correction,
+            check_update,
+            install_update,
+            get_first_run_done,
+            set_first_run_done
         ])
         .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(plugin);
     if let Err(e) = app.run(tauri::generate_context!()) {
         eprintln!("Tauri application error: {}", e);
