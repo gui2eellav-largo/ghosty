@@ -244,6 +244,8 @@ pub fn save_mode(app: &tauri::AppHandle, mut mode: ModeConfig) -> Result<Vec<Mod
 
     if mode.id.is_empty() {
         mode.id = uuid::Uuid::new_v4().to_string();
+        mode.is_custom = true;
+        mode.locked = false;
         modes.push(mode);
     } else if let Some(existing) = modes.iter_mut().find(|m| m.id == mode.id) {
         if existing.is_custom {

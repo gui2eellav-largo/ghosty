@@ -17,7 +17,6 @@ export function useModes() {
   const [modeDraft, setModeDraft] = useState<Partial<ModeConfig> | null>(null);
   const [modeIdToConfirmDelete, setModeIdToConfirmDelete] = useState<string | null>(null);
   const [modeRowMenuOpen, setModeRowMenuOpen] = useState<string | null>(null);
-  const [directDeleteBlockedMessage, setDirectDeleteBlockedMessage] = useState<string | null>(null);
   const modeRowMenuRef = useRef<HTMLDivElement>(null);
 
   const loadModes = async () => {
@@ -44,19 +43,11 @@ export function useModes() {
     setModeRowMenuOpen(null);
   }, [selectedModeId]);
 
-  useEffect(() => {
-    if (directDeleteBlockedMessage === null) return;
-    const t = setTimeout(() => setDirectDeleteBlockedMessage(null), 4000);
-    return () => clearTimeout(t);
-  }, [directDeleteBlockedMessage]);
-
   const sortedModeIds = [...modes].sort((a, b) => a.order - b.order).map((m) => m.id);
   const selectedModeIndex = selectedModeId ? sortedModeIds.indexOf(selectedModeId) : -1;
   const selectedModeConfig = modes.find((m) => m.id === selectedModeId) ?? null;
-  const selectedLocked = selectedModeConfig?.locked ?? false;
-  const canMoveUp = selectedModeIndex > 0 && !selectedLocked;
-  const canMoveDown =
-    selectedModeIndex >= 0 && selectedModeIndex < sortedModeIds.length - 1 && !selectedLocked;
+  const canMoveUp = selectedModeIndex > 0;
+  const canMoveDown = selectedModeIndex >= 0 && selectedModeIndex < sortedModeIds.length - 1;
 
   const handleSaveMode = async () => {
     if (!editedMode) return;
@@ -79,30 +70,14 @@ export function useModes() {
   const handleDeleteMode = async (modeId: string) => {
     setModeIdToConfirmDelete(null);
     const mode = modes.find((m) => m.id === modeId);
-    if (mode && !mode.isCustom) {
-      if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(50);
-      setDirectDeleteBlockedMessage(
-        "Built-in modes cannot be deleted. You can only hide them from the widget."
-      );
-      return;
-    }
+    if (mode && !mode.isCustom) return;
     try {
       const updated = await api.modes.delete(modeId);
       setModes(updated.sort((a, b) => a.order - b.order));
       const first = updated[0];
       if (selectedModeId === modeId && first) setSelectedModeId(first.id);
     } catch (e) {
-      const msg = String(e);
-      if (msg.includes("Built-in") && msg.includes("cannot be deleted")) {
-        if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(50);
-        setDirectDeleteBlockedMessage(
-          "Built-in modes cannot be deleted. You can only hide them from the widget."
-        );
-      } else if (msg.includes("locked")) {
-        setDirectDeleteBlockedMessage("Mode is locked. Unlock it to delete.");
-      } else {
-        console.error(e);
-      }
+      console.error(e);
     }
   };
 
@@ -116,17 +91,6 @@ export function useModes() {
         const firstEnabled = sortedUpdated.filter((m) => m.enabled)[0];
         if (firstEnabled) setSelectedModeId(firstEnabled.id);
       }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleToggleLocked = async (mode: ModeConfig) => {
-    if (!mode.isCustom) return;
-    try {
-      const updated = await api.modes.save({ ...mode, locked: !mode.locked });
-      setModes(updated.sort((a, b) => a.order - b.order));
-      setModeRowMenuOpen(null);
     } catch (e) {
       console.error(e);
     }
@@ -173,7 +137,6 @@ export function useModes() {
       isCustom: true,
       isDefault: false,
       order: modes.length,
-      locked: false,
     };
     try {
       const updated = await api.modes.save(newMode);
@@ -188,20 +151,42 @@ export function useModes() {
     }
   };
 
-  const handleDuplicateMode = (mode: ModeConfig) => {
+  const handleDuplicateMode = async (mode: ModeConfig) => {
     if (mode.id === DIRECT_MODE_ID) return;
+    // For built-in modes, fetch the real system prompt from the backend
+    let systemPrompt = mode.systemPrompt;
+    if (!mode.isCustom) {
+      try {
+        const allModes = await api.modes.getAll();
+        const src = allModes.find((m) => m.id === mode.id);
+        if (src) systemPrompt = src.systemPrompt;
+      } catch {
+        // fallback to whatever we have
+      }
+    }
     const duplicated: ModeConfig = {
       ...mode,
       id: "",
       name: `${mode.name} (Copy)`,
+      systemPrompt,
       isCustom: true,
       isDefault: false,
       order: modes.length,
-      locked: false,
     };
-    setEditedMode(duplicated);
-    setIsEditingMode(true);
-    setSelectedModeId(null);
+    // Save immediately so it appears in the custom list
+    try {
+      const updated = await api.modes.save(duplicated);
+      const sorted = updated.sort((a, b) => a.order - b.order);
+      setModes(sorted);
+      const created = sorted.find(
+        (m) => m.isCustom && !modes.some((old) => old.id === m.id)
+      );
+      if (created) setSelectedModeId(created.id);
+      setIsEditingMode(false);
+      setEditedMode(null);
+    } catch (e) {
+      console.error("Failed to duplicate mode:", e);
+    }
   };
 
   const handleExportMode = (mode: ModeConfig) => {
@@ -281,7 +266,6 @@ export function useModes() {
     selectedModeConfig,
     selectedModeIndex,
     sortedModeIds,
-    selectedLocked,
     canMoveUp,
     canMoveDown,
     isEditingMode,
@@ -301,13 +285,10 @@ export function useModes() {
     setImportModesJson,
     importModesError,
     setImportModesError,
-    directDeleteBlockedMessage,
-    setDirectDeleteBlockedMessage,
     loadModes,
     handleSaveMode,
     handleDeleteMode,
     handleToggleModeEnabled,
-    handleToggleLocked,
     handleMoveMode,
     saveModeDraft,
     handleCreateNewMode,
