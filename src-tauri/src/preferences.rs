@@ -35,15 +35,18 @@ pub struct GeneralPrefs {
     pub display_name: Option<String>,
     #[serde(default)]
     pub avatar_path: Option<String>,
+    #[serde(default)]
+    pub first_run_done: bool,
 }
 
 impl Default for GeneralPrefs {
     fn default() -> Self {
         Self {
             launch_at_login: false,
-            auto_update: true,
+            auto_update: false,
             display_name: None,
             avatar_path: None,
+            first_run_done: false,
         }
     }
 }
@@ -95,7 +98,7 @@ impl Default for TranscriptionPrefs {
         Self {
             model: "whisper-1".into(),
             timeout_secs: 30,
-            language: None,
+            language: Some("fr".into()),
         }
     }
 }
@@ -113,7 +116,7 @@ impl Default for LlmPrefs {
     fn default() -> Self {
         Self {
             model: "gpt-4o-mini".into(),
-            temperature: 0.7,
+            temperature: 0.3,
             max_tokens: 1024,
             timeout_secs: 45,
         }

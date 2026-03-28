@@ -101,25 +101,121 @@ impl RecorderState {
 
 const CANCELLED_MSG: &str = "Annulé";
 
+/// Filler words to strip from transcriptions (case-insensitive, whole-word).
+/// French and English fillers that add no semantic value.
+const FILLERS_FR: &[&str] = &[
+    "euh", "euhm", "heu", "heum", "hmm", "hm",
+    "bah", "beh", "ben", "bon", "bon ben",
+    "genre", "en fait", "du coup", "en gros",
+    "tu vois", "vous voyez", "tu sais", "vous savez",
+    "quoi", // trailing filler "...quoi"
+    "voilà", // trailing filler "...voilà"
+    "disons", "disons que",
+    "comment dire",
+];
+
+const FILLERS_EN: &[&str] = &[
+    "uh", "uhm", "um", "umm", "hmm", "hm",
+    "like", "you know", "i mean", "basically",
+    "kind of", "sort of", "right",
+    "so yeah", "yeah so",
+];
+
 fn light_fast_path(s: &str) -> String {
     let trimmed = s.trim();
     if trimmed.is_empty() {
         return String::new();
     }
-    let collapsed: String = trimmed.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    // Split into words, remove filler phrases by whole-word matching
+    let words: Vec<&str> = trimmed.split_whitespace().collect();
+    let mut cleaned: Vec<String> = Vec::new();
+    let mut i = 0;
+
+    while i < words.len() {
+        let mut matched = false;
+        // Try longest fillers first to avoid partial matches
+        let mut all_fillers: Vec<&str> = FILLERS_FR.iter().chain(FILLERS_EN.iter()).copied().collect();
+        all_fillers.sort_by(|a, b| b.split_whitespace().count().cmp(&a.split_whitespace().count()));
+        for filler in &all_fillers {
+            let filler_words: Vec<&str> = filler.split_whitespace().collect();
+            let flen = filler_words.len();
+            if flen > 0 && i + flen <= words.len() {
+                let candidate: Vec<String> = words[i..i + flen]
+                    .iter()
+                    .map(|w| {
+                        w.to_lowercase()
+                            .trim_matches(|c: char| c == ',' || c == ';' || c == '.' || c == '!' || c == '?')
+                            .to_string()
+                    })
+                    .collect();
+                let filler_match: Vec<String> =
+                    filler_words.iter().map(|w| w.to_lowercase()).collect();
+                if candidate == filler_match {
+                    i += flen;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+        if !matched {
+            cleaned.push(words[i].to_string());
+            i += 1;
+        }
+    }
+
+    let collapsed = cleaned.join(" ");
     let mut result = String::with_capacity(collapsed.len() + 1);
+
+    // Capitalize first letter
     let mut chars = collapsed.chars();
     if let Some(first) = chars.next() {
         result.extend(first.to_uppercase());
         result.extend(chars);
     }
     result = result.trim_end().to_string();
+
+    // Ensure ending punctuation
     if let Some(last) = result.chars().last() {
         if last != '.' && last != '?' && last != '!' {
             result.push('.');
         }
     }
+
+    // Clean orphan commas/spaces from filler removal
+    result = result.replace("  ", " ");
+    result = result.replace(" ,", ",");
+    result = result.replace(",,", ",");
+    result = result.replace(", .", ".");
+    result = result.replace(" .", ".");
+
     result
+}
+
+/// Find the "---REFLECTION---" separator in any variant (case, spacing, French).
+/// Returns (start, end) byte offsets if found.
+fn find_reflection_separator(text: &str) -> Option<(usize, usize)> {
+    let lower = text.to_lowercase();
+    for keyword in &["reflection", "réflexion"] {
+        if let Some(kw_pos) = lower.find(keyword) {
+            // Walk backwards to find leading dashes
+            let start = text[..kw_pos]
+                .rfind('\n')
+                .map(|p| p + 1)
+                .unwrap_or(kw_pos);
+            let line_start = &text[start..kw_pos];
+            if line_start.trim().chars().all(|c| c == '-') && line_start.contains('-') {
+                // Walk forward past trailing dashes
+                let after_kw = kw_pos + keyword.len();
+                let end = text[after_kw..]
+                    .find('\n')
+                    .map(|p| after_kw + p + 1)
+                    .unwrap_or(text.len());
+                return Some((start, end));
+            }
+        }
+    }
+    None
 }
 
 async fn run_pipeline(
@@ -170,13 +266,11 @@ async fn run_pipeline(
         transcribed_text.clone()
     };
 
-    let payload = if final_text.contains("---REFLECTION---") {
-        let mut parts = final_text.split("---REFLECTION---");
-        let output = parts.next().unwrap_or("").trim().to_string();
-        let thoughts = parts
-            .next()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty());
+    // Robust split: handle variations like "--- REFLECTION ---", "---Reflection---", "---RÉFLEXION---"
+    let payload = if let Some((start, end)) = find_reflection_separator(&final_text) {
+        let output = final_text[..start].trim().to_string();
+        let thoughts_str = final_text[end..].trim().to_string();
+        let thoughts = if thoughts_str.is_empty() { None } else { Some(thoughts_str) };
         TranscriptionReadyPayload {
             output: output.clone(),
             thoughts,
@@ -263,8 +357,35 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
             AudioCommand::Stop => {
                 stream_holder = None;
                 let samples = buffer.lock().map(|b| b.clone()).unwrap_or_default();
+                let sample_count = samples.len();
+                let duration_secs = sample_count as f64 / sample_rate as f64;
+                let rms = if samples.is_empty() {
+                    0.0
+                } else {
+                    (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt()
+                };
+                let peak = samples.iter().map(|s| s.abs()).fold(0.0f32, f32::max);
+                let diag = format!(
+                    "[audio] samples={}, duration={:.2}s, rate={}, RMS={:.6}, peak={:.6}\n",
+                    sample_count, duration_secs, sample_rate, rms, peak
+                );
+                eprintln!("{}", diag.trim());
+                let _ = std::fs::OpenOptions::new()
+                    .create(true).append(true)
+                    .open("/tmp/ghosty_diag.log")
+                    .and_then(|mut f| std::io::Write::write_all(&mut f, diag.as_bytes()));
+                // Save debug WAV for inspection
+                if let Ok(wav) = write_wav_to_bytes(&samples, sample_rate) {
+                    let _ = std::fs::write("/tmp/ghosty_debug.wav", &wav);
+                }
                 if samples.is_empty() {
                     let _ = app.emit("transcription_error", "aucun audio enregistré");
+                    continue;
+                }
+                // VAD: Reject near-silence before sending to Whisper (prevents hallucinations)
+                if peak < 0.002 {
+                    eprintln!("[audio] VAD rejected: peak={:.6}, RMS={:.6} — likely silence", peak, rms);
+                    let _ = app.emit("transcription_error", "Audio trop faible ou silence détecté. Parlez plus fort ou plus près du micro.");
                     continue;
                 }
                 if let Ok(mut b) = buffer.lock() {
@@ -301,6 +422,60 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
     }
 }
 
+/// Check microphone permission on macOS before touching CoreAudio.
+/// CoreAudio calls abort() if access is denied, which kills the whole process.
+#[cfg(target_os = "macos")]
+fn check_microphone_permission() -> Result<(), String> {
+    let output = std::process::Command::new("swift")
+        .args(["-e", r#"
+import AVFoundation
+switch AVCaptureDevice.authorizationStatus(for: .audio) {
+case .authorized: print("authorized")
+case .notDetermined: print("notDetermined")
+case .denied: print("denied")
+case .restricted: print("restricted")
+@unknown default: print("unknown")
+}
+"#])
+        .output()
+        .map_err(|e| format!("Cannot check mic permission: {}", e))?;
+
+    let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    match status.as_str() {
+        "authorized" => Ok(()),
+        "notDetermined" => {
+            // Request permission (async but we wait for it)
+            let req_output = std::process::Command::new("swift")
+                .args(["-e", r#"
+import AVFoundation
+import Foundation
+let sem = DispatchSemaphore(value: 0)
+AVCaptureDevice.requestAccess(for: .audio) { _ in sem.signal() }
+sem.wait()
+let s = AVCaptureDevice.authorizationStatus(for: .audio)
+print(s == .authorized ? "authorized" : "denied")
+"#])
+                .output()
+                .map_err(|e| format!("Mic permission request failed: {}", e))?;
+
+            let result = String::from_utf8_lossy(&req_output.stdout).trim().to_string();
+            if result == "authorized" {
+                Ok(())
+            } else {
+                Err("Microphone access denied. Please grant microphone permission in System Settings > Privacy & Security > Microphone.".to_string())
+            }
+        }
+        "denied" => Err("Microphone access denied. Please grant microphone permission in System Settings > Privacy & Security > Microphone.".to_string()),
+        "restricted" => Err("Microphone access is restricted on this device.".to_string()),
+        _ => Err(format!("Unknown microphone permission status: {}", status)),
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn check_microphone_permission() -> Result<(), String> {
+    Ok(())
+}
+
 fn start_stream(
     stream_holder: &mut Option<cpal::Stream>,
     buffer: &Arc<Mutex<Vec<f32>>>,
@@ -308,6 +483,9 @@ fn start_stream(
     max_samples: usize,
     device_id: Option<&str>,
 ) -> Result<(), String> {
+    // Check permission BEFORE touching CoreAudio (which aborts on denied access)
+    check_microphone_permission()?;
+
     let host = cpal::default_host();
     let device = if let Some(id) = device_id {
         host.devices()
@@ -319,7 +497,27 @@ fn start_stream(
             .ok_or_else(|| "no input device".to_string())?
     };
 
+    let device_name = device.name().unwrap_or_else(|_| "unknown".to_string());
     let config = device.default_input_config().map_err(|e| e.to_string())?;
+    let channels = config.channels();
+
+    eprintln!(
+        "[audio] device='{}', format={:?}, rate={}, channels={}",
+        device_name,
+        config.sample_format(),
+        config.sample_rate().0,
+        channels
+    );
+    let _ = std::fs::write(
+        "/tmp/ghosty_device.log",
+        format!(
+            "device={}\nformat={:?}\nrate={}\nchannels={}\n",
+            device_name,
+            config.sample_format(),
+            config.sample_rate().0,
+            channels
+        ),
+    );
 
     *sample_rate = config.sample_rate().0;
     buffer.lock().map_err(|e| e.to_string())?.clear();
@@ -329,6 +527,9 @@ fn start_stream(
         eprintln!("audio stream error: {}", err);
     };
 
+    // Force mono: take only channel 0 from interleaved multi-channel input
+    let ch = channels as usize;
+
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => {
             let b = buffer_clone.clone();
@@ -337,12 +538,21 @@ fn start_stream(
                     &config.into(),
                     move |data: &[f32], _: &cpal::InputCallbackInfo| {
                         if let Ok(mut guard) = b.lock() {
-                            if guard.len() + data.len() <= max_samples {
-                                guard.extend_from_slice(data);
-                            } else if guard.len() < max_samples {
-                                let remaining = max_samples - guard.len();
-                                guard.extend_from_slice(&data[..remaining]);
-                                eprintln!("Limite d'enregistrement atteinte");
+                            if ch <= 1 {
+                                if guard.len() + data.len() <= max_samples {
+                                    guard.extend_from_slice(data);
+                                } else if guard.len() < max_samples {
+                                    let remaining = max_samples - guard.len();
+                                    guard.extend_from_slice(&data[..remaining]);
+                                }
+                            } else {
+                                // Extract channel 0 from interleaved data
+                                for chunk in data.chunks(ch) {
+                                    if guard.len() >= max_samples {
+                                        break;
+                                    }
+                                    guard.push(chunk[0]);
+                                }
                             }
                         }
                     },
@@ -358,12 +568,19 @@ fn start_stream(
                     &config.into(),
                     move |data: &[i16], _: &cpal::InputCallbackInfo| {
                         if let Ok(mut guard) = b.lock() {
-                            for &s in data {
-                                if guard.len() < max_samples {
+                            if ch <= 1 {
+                                for &s in data {
+                                    if guard.len() >= max_samples {
+                                        break;
+                                    }
                                     guard.push(f32::from_sample(s));
-                                } else {
-                                    eprintln!("Limite d'enregistrement atteinte");
-                                    break;
+                                }
+                            } else {
+                                for chunk in data.chunks(ch) {
+                                    if guard.len() >= max_samples {
+                                        break;
+                                    }
+                                    guard.push(f32::from_sample(chunk[0]));
                                 }
                             }
                         }
@@ -402,10 +619,12 @@ fn wav_spec(sample_rate: u32) -> hound::WavSpec {
     }
 }
 
-/// WAV en mémoire (évite I/O disque). Format: PCM 32-bit float mono, header 44 octets.
+/// WAV en mémoire (évite I/O disque). Format: PCM 16-bit signed mono, header 44 octets.
+/// 16-bit PCM is the most compatible format for speech APIs (Whisper, etc.).
 pub fn write_wav_to_bytes(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, String> {
-    let data_size = samples.len() * 4;
+    let data_size = samples.len() * 2; // 16-bit = 2 bytes per sample
     let file_size = 36 + data_size;
+    let byte_rate = sample_rate * 2; // 1 channel * 2 bytes
     let mut buf = Vec::with_capacity(44 + data_size);
     buf.write_all(b"RIFF").map_err(|e| e.to_string())?;
     buf.write_all(&(file_size as u32).to_le_bytes())
@@ -414,23 +633,26 @@ pub fn write_wav_to_bytes(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, 
     buf.write_all(b"fmt ").map_err(|e| e.to_string())?;
     buf.write_all(&16u32.to_le_bytes())
         .map_err(|e| e.to_string())?;
-    buf.write_all(&3u16.to_le_bytes())
-        .map_err(|e| e.to_string())?; // WAVE_FORMAT_IEEE_FLOAT
     buf.write_all(&1u16.to_le_bytes())
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?; // WAVE_FORMAT_PCM
+    buf.write_all(&1u16.to_le_bytes())
+        .map_err(|e| e.to_string())?; // 1 channel
     buf.write_all(&sample_rate.to_le_bytes())
         .map_err(|e| e.to_string())?;
-    buf.write_all(&(sample_rate * 4).to_le_bytes())
+    buf.write_all(&byte_rate.to_le_bytes())
         .map_err(|e| e.to_string())?;
-    buf.write_all(&4u16.to_le_bytes())
-        .map_err(|e| e.to_string())?;
-    buf.write_all(&32u16.to_le_bytes())
-        .map_err(|e| e.to_string())?;
+    buf.write_all(&2u16.to_le_bytes())
+        .map_err(|e| e.to_string())?; // block align
+    buf.write_all(&16u16.to_le_bytes())
+        .map_err(|e| e.to_string())?; // bits per sample
     buf.write_all(b"data").map_err(|e| e.to_string())?;
     buf.write_all(&(data_size as u32).to_le_bytes())
         .map_err(|e| e.to_string())?;
     for &s in samples {
-        buf.write_all(&s.to_le_bytes()).map_err(|e| e.to_string())?;
+        // Clamp and convert f32 [-1.0, 1.0] to i16
+        let clamped = s.clamp(-1.0, 1.0);
+        let pcm = (clamped * 32767.0) as i16;
+        buf.write_all(&pcm.to_le_bytes()).map_err(|e| e.to_string())?;
     }
     Ok(buf)
 }

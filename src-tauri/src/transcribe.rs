@@ -3,6 +3,38 @@ use std::time::Duration;
 
 const MAX_RETRIES: u32 = 3;
 
+/// Known Whisper hallucination patterns — boilerplate text from training data
+/// that Whisper outputs when audio is too short, silent, or inaudible.
+fn is_whisper_hallucination(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    // Long patterns: match if text contains them
+    let hallucinations = [
+        "sous-titres réalisés par",
+        "sous-titres par",
+        "amara.org",
+        "subtitles by",
+        "sous-titrage",
+        "merci d'avoir regardé",
+        "thank you for watching",
+        "시청해주셔서 감사합니다",
+        "请不吝点赞",
+        "ご視聴ありがとうございました",
+        "thanks for watching",
+        "please subscribe",
+        "like and subscribe",
+    ];
+    if hallucinations.iter().any(|h| lower.contains(h)) {
+        return true;
+    }
+    // Short exact-match hallucinations (common single-word outputs on silence)
+    let trimmed = lower.trim().trim_end_matches('.');
+    let short_hallucinations = [
+        "merci", "bonjour", "au revoir", "bye", "thanks", "thank you",
+        "oui", "non", "ok", "hello", "hi",
+    ];
+    short_hallucinations.iter().any(|h| trimmed == *h)
+}
+
 /// Transcription async à partir du WAV en mémoire. Retries avec backoff.
 pub async fn transcribe_bytes(
     wav_bytes: Vec<u8>,
@@ -55,13 +87,14 @@ async fn transcribe_bytes_internal(
     let mut form = reqwest::multipart::Form::new()
         .part("file", part)
         .text("model", model);
-    if let Some(lang) = &prefs.transcription.language {
-        if !lang.is_empty() {
-            form = form.text("language", lang.clone());
-        }
+    let lang = prefs.transcription.language.as_deref().unwrap_or("fr");
+    if !lang.is_empty() {
+        form = form.text("language", lang.to_string());
     }
 
     let dict_prompt = crate::dictionary::build_whisper_prompt(app);
+    // Send dict words as prompt to guide Whisper transcription.
+    // Don't send conversational text as prompt — Whisper may echo it back.
     if !dict_prompt.is_empty() {
         form = form.text("prompt", dict_prompt);
     }
@@ -86,5 +119,12 @@ async fn transcribe_bytes_internal(
         text: String,
     }
     let out: Transcription = resp.json().await.map_err(|e| e.to_string())?;
-    Ok(out.text.trim().to_string())
+    let text = out.text.trim().to_string();
+
+    // Filter known Whisper hallucinations (boilerplate from training data)
+    if is_whisper_hallucination(&text) {
+        return Err("Transcription vide ou inaudible. Essayez de parler plus fort ou plus longtemps.".to_string());
+    }
+
+    Ok(text)
 }

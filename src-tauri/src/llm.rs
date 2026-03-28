@@ -105,22 +105,8 @@ pub async fn transform_text_streaming(
     }
 }
 
-fn meta_system_prompt(mode_prompt: &str) -> String {
-    format!(
-        r#"You are a request optimization expert. Your role: transform user's voice input into an optimized request ready for AI (ChatGPT/Claude/etc).
-
-CRITICAL RULES:
-1. Output = request for AI, NOT the final content
-2. Adaptive length: short input → concise request, detailed input → comprehensive request
-3. Zero meta-commentary. No 'Here is the request:' or explanations
-4. Output format: Direct request ready to copy-paste
-
-MODE INSTRUCTION:
-{}
-
-USER VOICE INPUT (to transform into optimized request):"#,
-        mode_prompt
-    )
+fn build_system_prompt(mode_prompt: &str) -> String {
+    mode_prompt.to_string()
 }
 
 async fn transform_text_streaming_internal(
@@ -145,7 +131,7 @@ async fn transform_text_streaming_internal(
         messages: vec![
             Message {
                 role: "system".to_string(),
-                content: meta_system_prompt(mode_prompt),
+                content: build_system_prompt(mode_prompt),
             },
             Message {
                 role: "user".to_string(),
