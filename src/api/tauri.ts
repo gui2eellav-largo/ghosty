@@ -11,6 +11,8 @@ import type {
   ShortcutConfig,
   DictionaryEntry,
   UsageStats,
+  WordCandidate,
+  Snippet,
 } from "@/types";
 
 export const tauriApi = {
@@ -33,6 +35,16 @@ export const tauriApi = {
   llm: {
     improveSystemPrompt: (prompt: string): Promise<string> =>
       invoke("improve_system_prompt", { prompt }),
+    transformText: (text: string, prompt: string): Promise<string> =>
+      invoke("transform_text_direct", { text, prompt }),
+  },
+
+  snippets: {
+    getAll: (): Promise<Snippet[]> => invoke("get_all_snippets"),
+    save: (snippet: Partial<Snippet> & Pick<Snippet, "id">): Promise<Snippet[]> =>
+      invoke("save_snippet", { snippet }),
+    delete: (snippetId: string): Promise<Snippet[]> => invoke("delete_snippet", { snippetId }),
+    reorder: (snippetIds: string[]): Promise<Snippet[]> => invoke("reorder_snippets", { snippetIds }),
   },
 
   shortcuts: {
@@ -59,7 +71,7 @@ export const tauriApi = {
     }): Promise<DictionaryEntry> =>
       invoke("add_dictionary_entry", {
         word: entry.word,
-        entry_type: entry.type,
+        entryType: entry.type,
         pronunciation: entry.pronunciation ?? null,
         misspellings: entry.misspellings.length ? entry.misspellings : null,
       }),
@@ -73,7 +85,7 @@ export const tauriApi = {
       invoke("update_dictionary_entry", {
         id: entry.id,
         word: entry.word ?? null,
-        entry_type: entry.type ?? null,
+        entryType: entry.type ?? null,
         pronunciation: entry.pronunciation ?? null,
         misspellings: entry.misspellings ?? null,
       }),
@@ -84,7 +96,7 @@ export const tauriApi = {
     getAll: (): Promise<Array<[string, string, string, boolean]>> =>
       invoke("get_all_api_keys"),
     hasKey: (): Promise<boolean> => invoke("has_openai_key"),
-    test: (key: string): Promise<unknown> => invoke("test_openai_key", { key }),
+    test: (key: string, provider?: string): Promise<unknown> => invoke("test_openai_key", { key, provider }),
     add: (params: { name: string; provider: string; key: string }): Promise<unknown> =>
       invoke("add_api_key_entry", params),
     remove: (keyId: string): Promise<unknown> => invoke("remove_api_key_entry", { keyId }),
@@ -111,6 +123,21 @@ export const tauriApi = {
     start: (): Promise<unknown> => invoke("start_recording"),
     stop: (): Promise<unknown> => invoke("stop_recording"),
     cancel: (): Promise<unknown> => invoke("cancel_transcription"),
+  },
+
+  correction: {
+    analyze: (): Promise<WordCandidate[]> => invoke("analyze_clipboard_correction"),
+  },
+
+  updater: {
+    check: (): Promise<{ available: boolean; version?: string; body?: string }> =>
+      invoke("check_update"),
+    install: (): Promise<void> => invoke("install_update"),
+  },
+
+  onboarding: {
+    isDone: (): Promise<boolean> => invoke("get_first_run_done"),
+    markDone: (): Promise<void> => invoke("set_first_run_done"),
   },
 
   window: {

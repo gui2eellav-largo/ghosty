@@ -3,9 +3,36 @@ use cpal::Sample;
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Once};
 use tauri::Emitter;
 use tauri::Manager;
+
+/// Cached microphone permission result. Checked once at startup, reused on every recording.
+static MIC_PERMISSION_ONCE: Once = Once::new();
+static MIC_PERMISSION_OK: AtomicBool = AtomicBool::new(false);
+
+/// Pre-check microphone permission at app startup (call from setup).
+/// Caches the result so `start_stream` never blocks on a Swift subprocess.
+/// NOTE: Skipped in debug builds — on macOS 26+, the unsigned dev binary
+/// has no Info.plist bundle, so TCC kills the process on first mic access.
+pub fn warmup_mic_permission() {
+    #[cfg(debug_assertions)]
+    {
+        // In dev mode, defer permission check to first actual recording
+        return;
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        std::thread::spawn(|| {
+            MIC_PERMISSION_ONCE.call_once(|| {
+                MIC_PERMISSION_OK.store(
+                    check_microphone_permission().is_ok(),
+                    Ordering::SeqCst,
+                );
+            });
+        });
+    }
+}
 
 #[derive(Clone, Debug, serde::Serialize)]
 pub struct AudioInputDevice {
@@ -51,6 +78,9 @@ pub enum AudioCommand {
 pub struct RecorderState {
     cmd_tx: Mutex<Option<mpsc::Sender<AudioCommand>>>,
     is_capturing: AtomicBool,
+    /// Bundle ID of the app that was frontmost when recording started.
+    /// Used to reactivate it before auto-paste (Cmd+V).
+    previous_app: Mutex<Option<String>>,
 }
 
 impl Default for RecorderState {
@@ -58,38 +88,69 @@ impl Default for RecorderState {
         Self {
             cmd_tx: Mutex::new(None),
             is_capturing: AtomicBool::new(false),
+            previous_app: Mutex::new(None),
         }
     }
 }
 
 impl RecorderState {
     pub fn is_capturing(&self) -> bool {
-        self.is_capturing.load(Ordering::Relaxed)
+        self.is_capturing.load(Ordering::SeqCst)
     }
 
     /// Utilisé par le worker quand start_stream échoue pour réaligner l’état.
     pub fn set_capturing(&self, value: bool) {
-        self.is_capturing.store(value, Ordering::Relaxed);
+        self.is_capturing.store(value, Ordering::SeqCst);
     }
 
-    pub fn start_capture(&self, app: tauri::AppHandle) -> Result<(), String> {
-        if self.is_capturing.swap(true, Ordering::Relaxed) {
-            return Ok(());
-        }
-        let mut guard = self.cmd_tx.lock().map_err(|e| e.to_string())?;
+    /// Get the saved previous app bundle ID (for auto-paste).
+    pub fn take_previous_app(&self) -> Option<String> {
+        self.previous_app.lock().ok().and_then(|mut g| g.take())
+    }
+
+    /// Pre-spawn the audio worker thread so the first recording starts instantly.
+    /// Call this once from app setup.
+    pub fn warmup(&self, app: tauri::AppHandle) {
+        let mut guard = self.cmd_tx.lock().unwrap_or_else(|e| e.into_inner());
         if guard.is_none() {
             let (tx, rx) = mpsc::channel();
             std::thread::spawn(move || run_audio_worker(rx, app));
             *guard = Some(tx);
         }
+    }
+
+    pub fn start_capture(&self, app: tauri::AppHandle) -> Result<(), String> {
+        if self.is_capturing.swap(true, Ordering::SeqCst) {
+            return Ok(());
+        }
+        // Send Start command FIRST for minimum latency — the stream opens immediately.
+        let mut guard = self.cmd_tx.lock().map_err(|e| e.to_string())?;
+        if guard.is_none() {
+            // Fallback if warmup wasn't called
+            let (tx, rx) = mpsc::channel();
+            std::thread::spawn({
+                let app = app.clone();
+                move || run_audio_worker(rx, app)
+            });
+            *guard = Some(tx);
+        }
         if let Some(ref tx) = *guard {
             tx.send(AudioCommand::Start).map_err(|e| e.to_string())?;
+        }
+        drop(guard);
+        // Save the currently frontmost app AFTER starting the stream.
+        // This is used later to reactivate it for auto-paste (Cmd+V).
+        if let Ok(mut prev) = self.previous_app.lock() {
+            *prev = crate::clipboard::get_frontmost_app();
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/ghosty_paste.log") {
+                let _ = std::io::Write::write_all(&mut f, format!("[start_capture] previous_app={:?}\n", *prev).as_bytes());
+            }
         }
         Ok(())
     }
 
     pub fn stop_capture(&self) -> Result<(), String> {
-        if !self.is_capturing.swap(false, Ordering::Relaxed) {
+        if !self.is_capturing.swap(false, Ordering::SeqCst) {
             return Ok(());
         }
         let guard = self.cmd_tx.lock().map_err(|e| e.to_string())?;
@@ -109,10 +170,15 @@ const FILLERS_FR: &[&str] = &[
     "bah", "beh", "ben", "bon", "bon ben",
     "genre", "en fait", "du coup", "en gros",
     "tu vois", "vous voyez", "tu sais", "vous savez",
-    "quoi", // trailing filler "...quoi"
-    "voilà", // trailing filler "...voilà"
+    "quoi", "voilà",
     "disons", "disons que",
     "comment dire",
+    "alors", "enfin", "donc", "et donc", "en mode",
+    "tu vois ce que je veux dire",
+    "c'est-à-dire", "j'veux dire",
+    "attends", "nan mais",
+    "ouais", "ouais ouais",
+    "en vrai", "après",
 ];
 
 const FILLERS_EN: &[&str] = &[
@@ -120,24 +186,27 @@ const FILLERS_EN: &[&str] = &[
     "like", "you know", "i mean", "basically",
     "kind of", "sort of", "right",
     "so yeah", "yeah so",
+    "actually", "literally", "honestly",
+    "so basically", "i guess", "well", "anyway",
+    "you see", "like basically",
+    "at the end of the day", "to be honest",
 ];
 
-fn light_fast_path(s: &str) -> String {
+pub fn strip_fillers(s: &str) -> String {
     let trimmed = s.trim();
     if trimmed.is_empty() {
         return String::new();
     }
 
-    // Split into words, remove filler phrases by whole-word matching
     let words: Vec<&str> = trimmed.split_whitespace().collect();
     let mut cleaned: Vec<String> = Vec::new();
     let mut i = 0;
 
+    let mut all_fillers: Vec<&str> = FILLERS_FR.iter().chain(FILLERS_EN.iter()).copied().collect();
+    all_fillers.sort_by(|a, b| b.split_whitespace().count().cmp(&a.split_whitespace().count()));
+
     while i < words.len() {
         let mut matched = false;
-        // Try longest fillers first to avoid partial matches
-        let mut all_fillers: Vec<&str> = FILLERS_FR.iter().chain(FILLERS_EN.iter()).copied().collect();
-        all_fillers.sort_by(|a, b| b.split_whitespace().count().cmp(&a.split_whitespace().count()));
         for filler in &all_fillers {
             let filler_words: Vec<&str> = filler.split_whitespace().collect();
             let flen = filler_words.len();
@@ -165,25 +234,34 @@ fn light_fast_path(s: &str) -> String {
         }
     }
 
-    let collapsed = cleaned.join(" ");
-    let mut result = String::with_capacity(collapsed.len() + 1);
+    let result = cleaned.join(" ");
+    let result = result.replace("  ", " ");
+    let result = result.replace(" ,", ",");
+    let result = result.replace(",,", ",");
+    result.trim().to_string()
+}
 
-    // Capitalize first letter
-    let mut chars = collapsed.chars();
+fn light_fast_path(s: &str) -> String {
+    let stripped = strip_fillers(s);
+    if stripped.is_empty() {
+        return String::new();
+    }
+
+    let mut result = String::with_capacity(stripped.len() + 1);
+
+    let mut chars = stripped.chars();
     if let Some(first) = chars.next() {
         result.extend(first.to_uppercase());
         result.extend(chars);
     }
     result = result.trim_end().to_string();
 
-    // Ensure ending punctuation
     if let Some(last) = result.chars().last() {
         if last != '.' && last != '?' && last != '!' {
             result.push('.');
         }
     }
 
-    // Clean orphan commas/spaces from filler removal
     result = result.replace("  ", " ");
     result = result.replace(" ,", ",");
     result = result.replace(",,", ",");
@@ -229,6 +307,17 @@ async fn run_pipeline(
         r = crate::transcribe::transcribe_bytes(wav_bytes, &app) => r?,
     };
     crate::usage::increment_transcription(&app);
+    let transcribed_text = strip_fillers(&transcribed_text);
+    let transcribed_text = crate::dictionary::apply_corrections(&app, &transcribed_text);
+    let transcribed_text = crate::snippets::process_snippets(&transcribed_text, &app);
+    let edit_result = crate::edit_commands::process_edit_commands(&transcribed_text);
+    if edit_result.edits_applied > 0 {
+        crate::clipboard::log_debug(&format!(
+            "[run_pipeline] edit commands applied: {} edit(s)",
+            edit_result.edits_applied
+        ));
+    }
+    let transcribed_text = edit_result.text;
     let prompt_state = app.try_state::<crate::prompt_state::ActivePromptState>();
     let mode_prompt = prompt_state.as_ref().and_then(|s| s.get().ok()).flatten();
     let active_mode = prompt_state
@@ -246,7 +335,9 @@ async fn run_pipeline(
     // Built-in modes use temperature 0.2 for fidelity (Fix 2)
     let temp_override = if is_builtin { Some(0.2_f32) } else { None };
 
-    let final_text = if active_mode.as_deref() == Some("light") {
+    let is_light_mode = active_mode.as_deref() == Some("light");
+
+    let final_text = if is_light_mode {
         light_fast_path(&transcribed_text)
     } else if word_count < 3 {
         // Too short for meaningful LLM transformation — just clean up
@@ -281,6 +372,20 @@ async fn run_pipeline(
         transcribed_text.clone()
     };
 
+    // Voice commands: extract from final text in light/Direct mode only
+    let (final_text, voice_commands) = if is_light_mode {
+        let result = crate::voice_commands::extract_commands(&final_text);
+        if !result.commands.is_empty() {
+            crate::clipboard::log_debug(&format!(
+                "[run_pipeline] voice commands detected: {:?}",
+                result.commands
+            ));
+        }
+        (result.cleaned_text, result.commands)
+    } else {
+        (final_text, Vec::new())
+    };
+
     // Robust split: handle variations like "--- REFLECTION ---", "---Reflection---", "---RÉFLEXION---"
     let payload = if let Some((start, end)) = find_reflection_separator(&final_text) {
         let output = final_text[..start].trim().to_string();
@@ -312,40 +417,49 @@ async fn run_pipeline(
             payload.output.clone()
         };
 
+    // 1. Try direct AX insertion first (no clipboard pollution)
     let mut did_paste = false;
-    if let Err(e) = crate::clipboard::copy_to_clipboard(&text_to_copy, &app) {
-        eprintln!("Clipboard: {}", e);
-    } else {
-        // Release floating window focus so Cmd+V goes to the user's app
-        let app_for_paste = app.clone();
-        let _ = app.run_on_main_thread(move || {
-            if let Some(w) = app_for_paste.get_webview_window("floating") {
-                let _ = w.set_ignore_cursor_events(true);
-            }
-        });
-        // Give macOS time to restore focus to previous window
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        // Send Cmd+V
-        let app_for_cmd_v = app.clone();
-        let (tx, rx) = std::sync::mpsc::channel();
-        let _ = app.run_on_main_thread(move || {
-            let result = crate::clipboard::auto_paste(&app_for_cmd_v);
-            let _ = tx.send(result.is_ok());
-        });
-        if let Ok(success) = rx.recv_timeout(std::time::Duration::from_millis(500)) {
-            did_paste = success;
+    let ax_inserted = match crate::clipboard::insert_text_via_ax(&text_to_copy) {
+        Ok(true) => {
+            crate::clipboard::log_debug("[run_pipeline] AX insertion succeeded, skipping clipboard");
+            did_paste = true;
+            true
         }
-        if !did_paste {
-            eprintln!("Auto-paste: failed or timed out");
+        Ok(false) => {
+            crate::clipboard::log_debug("[run_pipeline] AX insertion not available, falling back to clipboard");
+            false
         }
-        // Re-enable interactivity on floating window after a short delay
-        let app_restore = app.clone();
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        let _ = app.run_on_main_thread(move || {
-            if let Some(w) = app_restore.get_webview_window("floating") {
-                let _ = w.set_ignore_cursor_events(false);
+        Err(e) => {
+            crate::clipboard::log_debug(&format!("[run_pipeline] AX insertion error: {}, falling back to clipboard", e));
+            false
+        }
+    };
+
+    // 2. Fall back to clipboard + Cmd+V if AX didn't work
+    if !ax_inserted {
+        if let Err(e) = crate::clipboard::copy_to_clipboard(&text_to_copy, &app) {
+            crate::clipboard::log_debug(&format!("[run_pipeline] clipboard FAILED: {}", e));
+        } else {
+            let has_text_focus = crate::clipboard::has_focused_text_field();
+            crate::clipboard::log_debug(&format!("[run_pipeline] clipboard OK, has_text_focus={}", has_text_focus));
+
+            match crate::clipboard::send_paste_keystroke() {
+                Ok(()) => {
+                    crate::clipboard::log_debug("[run_pipeline] Cmd+V sent OK");
+                    did_paste = has_text_focus;
+                }
+                Err(e) => crate::clipboard::log_debug(&format!("[run_pipeline] Cmd+V FAILED: {}", e)),
             }
-        });
+        }
+    }
+
+    // 3. Execute voice commands after paste (light mode only)
+    if !voice_commands.is_empty() && did_paste {
+        if let Err(e) = crate::voice_commands::execute_commands(&voice_commands) {
+            crate::clipboard::log_debug(&format!(
+                "[run_pipeline] voice commands FAILED: {}", e
+            ));
+        }
     }
     let mut payload_with_paste = payload.clone();
     payload_with_paste.pasted = did_paste;
@@ -400,7 +514,7 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
             }
             AudioCommand::Stop => {
                 stream_holder = None;
-                let samples = buffer.lock().map(|b| b.clone()).unwrap_or_default();
+                let samples = buffer.lock().ok().map(|mut b| std::mem::take(&mut *b)).unwrap_or_default();
                 let sample_count = samples.len();
                 let duration_secs = sample_count as f64 / sample_rate as f64;
                 let rms = if samples.is_empty() {
@@ -454,8 +568,12 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                     tauri::async_runtime::spawn(async move {
                         let result = run_pipeline(cancel_child, bytes, handle.clone()).await;
                         clear_pipeline_cancel(&handle);
-                        if let Err(err) = result {
-                            let _ = handle.emit("transcription_error", err);
+                        if let Err(ref err) = result {
+                            eprintln!("[run_pipeline] ERROR: {}", err);
+                            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/ghosty_diag.log") {
+                                let _ = std::io::Write::write_all(&mut f, format!("[run_pipeline] ERROR: {}\n", err).as_bytes());
+                            }
+                            let _ = handle.emit("transcription_error", err.clone());
                         }
                     });
                 }) {
@@ -527,8 +645,17 @@ fn start_stream(
     max_samples: usize,
     device_id: Option<&str>,
 ) -> Result<(), String> {
-    // Check permission BEFORE touching CoreAudio (which aborts on denied access)
-    check_microphone_permission()?;
+    // Check cached permission (warmed up at startup). Fall back to live check if not cached yet.
+    MIC_PERMISSION_ONCE.call_once(|| {
+        MIC_PERMISSION_OK.store(check_microphone_permission().is_ok(), Ordering::SeqCst);
+    });
+    if !MIC_PERMISSION_OK.load(Ordering::SeqCst) {
+        // Permission was denied at startup — try once more in case user granted it since
+        if check_microphone_permission().is_err() {
+            return Err("Microphone access denied. Please grant microphone permission in System Settings > Privacy & Security > Microphone.".to_string());
+        }
+        MIC_PERMISSION_OK.store(true, Ordering::SeqCst);
+    }
 
     let host = cpal::default_host();
     let device = if let Some(id) = device_id {
@@ -705,6 +832,8 @@ pub fn write_wav_to_bytes(samples: &[f32], sample_rate: u32) -> Result<Vec<u8>, 
 mod tests {
     use super::*;
 
+    // ── write_wav (hound-based, file) ───────────────────────────────
+
     #[test]
     fn test_write_wav_valid() {
         let samples: Vec<f32> = vec![0.0, 0.5, -0.5, 1.0];
@@ -727,13 +856,322 @@ mod tests {
     }
 
     #[test]
+    fn test_write_wav_different_sample_rates() {
+        for rate in [8000u32, 16000, 44100, 48000] {
+            let samples = vec![0.0f32; 100];
+            let temp_dir = tempfile::tempdir().unwrap();
+            let path = temp_dir.path().join(format!("rate_{}.wav", rate));
+            let result = write_wav(&path, &samples, rate);
+            assert!(result.is_ok(), "Failed for sample rate {}", rate);
+        }
+    }
+
+    // ── write_wav_to_bytes (in-memory PCM 16-bit) ───────────────────
+
+    #[test]
+    fn test_write_wav_to_bytes_header_size() {
+        let samples = vec![0.0f32; 10];
+        let bytes = write_wav_to_bytes(&samples, 16000).unwrap();
+        // 44-byte header + 10 samples * 2 bytes = 64
+        assert_eq!(bytes.len(), 44 + 10 * 2);
+    }
+
+    #[test]
+    fn test_write_wav_to_bytes_riff_header() {
+        let samples = vec![0.0f32; 4];
+        let bytes = write_wav_to_bytes(&samples, 16000).unwrap();
+        assert_eq!(&bytes[0..4], b"RIFF");
+        assert_eq!(&bytes[8..12], b"WAVE");
+        assert_eq!(&bytes[12..16], b"fmt ");
+        assert_eq!(&bytes[36..40], b"data");
+    }
+
+    #[test]
+    fn test_write_wav_to_bytes_sample_rate_encoded() {
+        let samples = vec![0.0f32; 4];
+        let bytes = write_wav_to_bytes(&samples, 44100).unwrap();
+        // Sample rate is at offset 24, little-endian u32
+        let rate = u32::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27]]);
+        assert_eq!(rate, 44100);
+    }
+
+    #[test]
+    fn test_write_wav_to_bytes_pcm_format() {
+        let samples = vec![0.0f32; 4];
+        let bytes = write_wav_to_bytes(&samples, 16000).unwrap();
+        // Audio format at offset 20: 1 = PCM
+        let format = u16::from_le_bytes([bytes[20], bytes[21]]);
+        assert_eq!(format, 1);
+        // Channels at offset 22: 1 = mono
+        let channels = u16::from_le_bytes([bytes[22], bytes[23]]);
+        assert_eq!(channels, 1);
+        // Bits per sample at offset 34: 16
+        let bits = u16::from_le_bytes([bytes[34], bytes[35]]);
+        assert_eq!(bits, 16);
+    }
+
+    #[test]
+    fn test_write_wav_to_bytes_empty_samples() {
+        let bytes = write_wav_to_bytes(&[], 16000).unwrap();
+        assert_eq!(bytes.len(), 44); // header only
+    }
+
+    #[test]
+    fn test_write_wav_to_bytes_clamping() {
+        // Values outside [-1.0, 1.0] should be clamped
+        let samples = vec![2.0f32, -2.0, 0.5];
+        let bytes = write_wav_to_bytes(&samples, 16000).unwrap();
+        // First sample (2.0 clamped to 1.0) -> 32767 as i16
+        let s0 = i16::from_le_bytes([bytes[44], bytes[45]]);
+        assert_eq!(s0, 32767);
+        // Second sample (-2.0 clamped to -1.0) -> -32767 as i16
+        let s1 = i16::from_le_bytes([bytes[46], bytes[47]]);
+        assert_eq!(s1, -32767);
+    }
+
+    #[test]
+    fn test_write_wav_to_bytes_silence() {
+        let samples = vec![0.0f32; 100];
+        let bytes = write_wav_to_bytes(&samples, 16000).unwrap();
+        // All PCM samples should be 0
+        for i in 0..100 {
+            let offset = 44 + i * 2;
+            let val = i16::from_le_bytes([bytes[offset], bytes[offset + 1]]);
+            assert_eq!(val, 0, "Sample {} should be 0", i);
+        }
+    }
+
+    // ── wav_spec ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_wav_spec_mono_float32() {
+        let spec = wav_spec(16000);
+        assert_eq!(spec.channels, 1);
+        assert_eq!(spec.sample_rate, 16000);
+        assert_eq!(spec.bits_per_sample, 32);
+        assert_eq!(spec.sample_format, hound::SampleFormat::Float);
+    }
+
+    // ── DEFAULT_MAX_RECORDING_SAMPLES ───────────────────────────────
+
+    #[test]
     fn test_max_recording_samples_constant() {
+        // 16000 Hz * 60s * 2 min = 1,920,000
         assert_eq!(DEFAULT_MAX_RECORDING_SAMPLES, 1_920_000);
     }
+
+    // ── RecorderState ───────────────────────────────────────────────
 
     #[test]
     fn test_recorder_state_default() {
         let state = RecorderState::default();
         assert!(state.cmd_tx.lock().is_ok());
+        assert!(!state.is_capturing());
+    }
+
+    #[test]
+    fn test_recorder_state_is_capturing_default_false() {
+        let state = RecorderState::default();
+        assert!(!state.is_capturing());
+    }
+
+    #[test]
+    fn test_recorder_state_set_capturing() {
+        let state = RecorderState::default();
+        state.set_capturing(true);
+        assert!(state.is_capturing());
+        state.set_capturing(false);
+        assert!(!state.is_capturing());
+    }
+
+    #[test]
+    fn test_recorder_state_take_previous_app_none_by_default() {
+        let state = RecorderState::default();
+        assert!(state.take_previous_app().is_none());
+    }
+
+    #[test]
+    fn test_recorder_state_take_previous_app_clears_value() {
+        let state = RecorderState::default();
+        // Manually set previous_app
+        if let Ok(mut guard) = state.previous_app.lock() {
+            *guard = Some("com.apple.Safari".to_string());
+        }
+        let app = state.take_previous_app();
+        assert_eq!(app, Some("com.apple.Safari".to_string()));
+        // Second take should be None
+        assert!(state.take_previous_app().is_none());
+    }
+
+    // ── light_fast_path ─────────────────────────────────────────────
+
+    #[test]
+    fn test_light_fast_path_empty() {
+        assert_eq!(light_fast_path(""), "");
+        assert_eq!(light_fast_path("   "), "");
+    }
+
+    #[test]
+    fn test_light_fast_path_capitalizes_first_letter() {
+        let result = light_fast_path("hello world");
+        assert!(result.starts_with('H'));
+    }
+
+    #[test]
+    fn test_light_fast_path_adds_period() {
+        let result = light_fast_path("hello world");
+        assert!(result.ends_with('.'));
+    }
+
+    #[test]
+    fn test_light_fast_path_keeps_existing_punctuation() {
+        let result = light_fast_path("is this a question?");
+        assert!(result.ends_with('?'));
+        assert!(!result.ends_with("?."));
+    }
+
+    #[test]
+    fn test_light_fast_path_keeps_exclamation() {
+        let result = light_fast_path("that is amazing!");
+        assert!(result.ends_with('!'));
+    }
+
+    #[test]
+    fn test_light_fast_path_removes_french_fillers() {
+        let result = light_fast_path("euh je pense que euh c'est bon");
+        assert!(!result.to_lowercase().contains("euh"));
+    }
+
+    #[test]
+    fn test_light_fast_path_removes_english_fillers() {
+        let result = light_fast_path("um I think like basically it works");
+        assert!(!result.to_lowercase().contains(" um "));
+        assert!(!result.to_lowercase().contains(" like "));
+        assert!(!result.to_lowercase().contains("basically"));
+    }
+
+    #[test]
+    fn test_light_fast_path_removes_multi_word_fillers() {
+        let result = light_fast_path("you know the meeting is tomorrow");
+        assert!(!result.to_lowercase().contains("you know"));
+    }
+
+    #[test]
+    fn test_light_fast_path_cleans_orphan_spaces() {
+        let result = light_fast_path("euh hello  world");
+        assert!(!result.contains("  "));
+    }
+
+    // ── strip_fillers ────────────────────────────────────────────────
+
+    #[test]
+    fn test_strip_fillers_empty() {
+        assert_eq!(strip_fillers(""), "");
+        assert_eq!(strip_fillers("   "), "");
+    }
+
+    #[test]
+    fn test_strip_fillers_no_capitalization() {
+        let result = strip_fillers("hello world");
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn test_strip_fillers_no_punctuation_added() {
+        let result = strip_fillers("hello world");
+        assert!(!result.ends_with('.'));
+    }
+
+    #[test]
+    fn test_strip_fillers_removes_french() {
+        let result = strip_fillers("euh je pense que en fait c'est bon");
+        assert!(!result.to_lowercase().contains("euh"));
+        assert!(!result.contains("en fait"));
+        assert!(result.contains("je pense que"));
+    }
+
+    #[test]
+    fn test_strip_fillers_removes_english() {
+        let result = strip_fillers("um I think like basically it works");
+        assert!(!result.contains(" um "));
+        assert!(!result.contains(" like "));
+        assert!(!result.contains("basically"));
+        assert!(result.contains("I think"));
+        assert!(result.contains("it works"));
+    }
+
+    #[test]
+    fn test_strip_fillers_removes_new_french_fillers() {
+        let result = strip_fillers("alors je vais en mode te montrer du coup le truc");
+        assert!(!result.to_lowercase().contains("alors"));
+        assert!(!result.contains("en mode"));
+        assert!(!result.contains("du coup"));
+    }
+
+    #[test]
+    fn test_strip_fillers_removes_new_english_fillers() {
+        let result = strip_fillers("honestly I think to be honest it works");
+        assert!(!result.to_lowercase().contains("honestly"));
+        assert!(!result.contains("to be honest"));
+    }
+
+    #[test]
+    fn test_strip_fillers_longest_match_first() {
+        let result = strip_fillers("tu vois ce que je veux dire c'est cool");
+        assert!(!result.contains("tu vois ce que je veux dire"));
+        assert!(result.contains("c'est cool"));
+    }
+
+    #[test]
+    fn test_strip_fillers_cleans_orphan_commas() {
+        let result = strip_fillers("euh, hello world");
+        assert!(!result.contains(" ,"));
+        assert!(!result.contains(",,"));
+    }
+
+    // ── find_reflection_separator ───────────────────────────────────
+
+    #[test]
+    fn test_find_reflection_separator_standard() {
+        let text = "Output text\n---REFLECTION---\nSome thoughts";
+        let sep = find_reflection_separator(text);
+        assert!(sep.is_some());
+        let (start, end) = sep.unwrap();
+        assert_eq!(&text[..start].trim(), &"Output text");
+        assert_eq!(&text[end..].trim(), &"Some thoughts");
+    }
+
+    #[test]
+    fn test_find_reflection_separator_with_spaces() {
+        let text = "Output text\n--- REFLECTION ---\nSome thoughts";
+        let sep = find_reflection_separator(text);
+        assert!(sep.is_some());
+    }
+
+    #[test]
+    fn test_find_reflection_separator_french() {
+        let text = "Texte\n---RÉFLEXION---\nPensées";
+        let sep = find_reflection_separator(text);
+        assert!(sep.is_some());
+    }
+
+    #[test]
+    fn test_find_reflection_separator_case_insensitive() {
+        let text = "Output\n---Reflection---\nThoughts";
+        let sep = find_reflection_separator(text);
+        assert!(sep.is_some());
+    }
+
+    #[test]
+    fn test_find_reflection_separator_none_when_absent() {
+        let text = "Just regular output text without any separator";
+        assert!(find_reflection_separator(text).is_none());
+    }
+
+    #[test]
+    fn test_find_reflection_separator_none_without_dashes() {
+        // "REFLECTION" without leading dashes should not match
+        let text = "Output\nREFLECTION\nThoughts";
+        assert!(find_reflection_separator(text).is_none());
     }
 }
