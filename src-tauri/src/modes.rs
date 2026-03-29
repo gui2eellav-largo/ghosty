@@ -102,9 +102,12 @@ pub fn default_modes() -> Vec<ModeConfig> {
 Same intent, fewer words, higher signal. Replace vague terms with precise ones. Inject 1–3 domain-specific keywords if the field is identifiable — they trigger better reasoning in the target AI. Strip all filler. Preserve data, names, numbers verbatim.
 
 Deliverable request (email, message, report) → sharpen the ask, don't produce it.
-Example: "en gros faut qu'on fasse un truc pour analyser pourquoi les ventes baissent" → "Analyse root cause de la baisse des ventes. Identifie les 3 leviers principaux. Données chiffrées, recommandations actionnables."
 
-Same language as input. No commentary."#.to_string(),
+ABSOLUTE RULES:
+- NEVER respond conversationally. NEVER ask questions. NEVER say "I don't understand" or "could you clarify".
+- ALWAYS output the transformed text, even if the input seems incomplete or vague. Infer what's missing.
+- Your output is pasted directly — it must be the final text, nothing else.
+- Same language as input. No commentary. No preamble."#.to_string(),
             enabled: true,
             is_custom: false,
             is_default: false,
@@ -122,7 +125,11 @@ Same language as input. No commentary."#.to_string(),
 
 Identify the real goal behind the surface ask. Rewrite from that angle. Add implied scope, constraints, output format. Use domain-specific expert terms if the field is identifiable — they activate better reasoning in the target AI. Deliverable request → frame the brief, don't produce it.
 
-Same language. No commentary. Dense — every sentence earns its place."#.to_string(),
+ABSOLUTE RULES:
+- NEVER respond conversationally. NEVER ask questions. NEVER say "I don't understand".
+- ALWAYS output the reframed request, even if the input seems vague. Infer intent.
+- Your output is pasted directly — it must be the final text, nothing else.
+- Same language. No commentary. Dense — every sentence earns its place."#.to_string(),
             enabled: true,
             is_custom: false,
             is_default: false,
@@ -142,7 +149,11 @@ Infer domain, real goal, unstated constraints. Structure: what is needed → why
 
 Deliverable rule: if the user asks to WRITE something (email, message, report), build a detailed production brief — never produce the deliverable itself. The output is always a REQUEST about producing it. NEVER output greetings, sign-offs, subject lines, or any text formatted as the final deliverable.
 
-Same language. No commentary. Dense — every sentence must carry new information."#.to_string(),
+ABSOLUTE RULES:
+- NEVER respond conversationally. NEVER ask questions. NEVER say "I don't understand".
+- ALWAYS output the built request, even if the input seems incomplete. Infer everything missing.
+- Your output is pasted directly — it must be the final text, nothing else.
+- Same language. No commentary. Dense — every sentence must carry new information."#.to_string(),
             enabled: true,
             is_custom: false,
             is_default: false,
@@ -289,4 +300,260 @@ pub fn get_mode_prompt(app: &tauri::AppHandle, mode_id: &str) -> Result<String, 
         .find(|m| m.id == mode_id && m.enabled)
         .map(|m| m.system_prompt.clone())
         .ok_or_else(|| format!("Mode '{}' not found or disabled", mode_id))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── default_modes ───────────────────────────────────────────────
+
+    #[test]
+    fn test_default_modes_contains_all_builtin() {
+        let modes = default_modes();
+        let ids: Vec<&str> = modes.iter().map(|m| m.id.as_str()).collect();
+        assert!(ids.contains(&"light"));
+        assert!(ids.contains(&"medium"));
+        assert!(ids.contains(&"strong"));
+        assert!(ids.contains(&"full"));
+    }
+
+    #[test]
+    fn test_default_modes_count() {
+        let modes = default_modes();
+        assert_eq!(modes.len(), 4);
+    }
+
+    #[test]
+    fn test_default_modes_all_enabled() {
+        for m in default_modes() {
+            assert!(m.enabled, "Default mode '{}' should be enabled", m.id);
+        }
+    }
+
+    #[test]
+    fn test_default_modes_not_custom() {
+        for m in default_modes() {
+            assert!(!m.is_custom, "Default mode '{}' should not be custom", m.id);
+        }
+    }
+
+    #[test]
+    fn test_default_modes_locked() {
+        for m in default_modes() {
+            assert!(m.locked, "Default mode '{}' should be locked", m.id);
+        }
+    }
+
+    #[test]
+    fn test_default_modes_light_has_empty_prompt() {
+        let modes = default_modes();
+        let light = modes.iter().find(|m| m.id == "light").unwrap();
+        assert!(light.system_prompt.is_empty(), "Light mode should have empty system_prompt (no LLM)");
+    }
+
+    #[test]
+    fn test_default_modes_non_light_have_prompts() {
+        let modes = default_modes();
+        for m in &modes {
+            if m.id != "light" {
+                assert!(!m.system_prompt.is_empty(), "Mode '{}' should have a system_prompt", m.id);
+            }
+        }
+    }
+
+    #[test]
+    fn test_default_modes_ordered() {
+        let modes = default_modes();
+        let orders: Vec<i32> = modes.iter().map(|m| m.order).collect();
+        let mut sorted = orders.clone();
+        sorted.sort();
+        assert_eq!(orders, sorted);
+    }
+
+    // ── is_builtin_mode ─────────────────────────────────────────────
+
+    #[test]
+    fn test_is_builtin_mode_true() {
+        assert!(is_builtin_mode("light"));
+        assert!(is_builtin_mode("medium"));
+        assert!(is_builtin_mode("strong"));
+        assert!(is_builtin_mode("full"));
+    }
+
+    #[test]
+    fn test_is_builtin_mode_false() {
+        assert!(!is_builtin_mode("custom-mode-123"));
+        assert!(!is_builtin_mode(""));
+        assert!(!is_builtin_mode("Light")); // case-sensitive
+    }
+
+    // ── ModeConfig::new_custom ──────────────────────────────────────
+
+    #[test]
+    fn test_new_custom_generates_uuid() {
+        let mode = ModeConfig::new_custom(
+            "Custom".to_string(),
+            "Desc".to_string(),
+            "#ff0000".to_string(),
+            "You are a custom assistant".to_string(),
+            10,
+        );
+        assert!(!mode.id.is_empty());
+        assert!(mode.is_custom);
+        assert!(mode.enabled);
+        assert!(!mode.locked);
+        assert!(!mode.is_default);
+        assert_eq!(mode.order, 10);
+    }
+
+    // ── merge_builtin_prompts ───────────────────────────────────────
+
+    #[test]
+    fn test_merge_builtin_prompts_updates_prompts() {
+        // Simulate loaded modes with stale prompts
+        let mut loaded = default_modes();
+        loaded[1].system_prompt = "old prompt".to_string();
+        let merged = merge_builtin_prompts(loaded);
+        let medium = merged.iter().find(|m| m.id == "medium").unwrap();
+        // Should have the current default prompt, not "old prompt"
+        assert_ne!(medium.system_prompt, "old prompt");
+    }
+
+    #[test]
+    fn test_merge_builtin_prompts_preserves_custom_modes() {
+        let mut loaded = default_modes();
+        loaded.push(ModeConfig {
+            id: "my-custom".to_string(),
+            name: "My Custom".to_string(),
+            description: "custom".to_string(),
+            color: "#000".to_string(),
+            system_prompt: "custom prompt".to_string(),
+            enabled: true,
+            is_custom: true,
+            is_default: false,
+            order: 100,
+            locked: false,
+            locked_order_legacy: None,
+            locked_editing_legacy: None,
+        });
+        let merged = merge_builtin_prompts(loaded);
+        assert!(merged.iter().any(|m| m.id == "my-custom"));
+    }
+
+    #[test]
+    fn test_merge_builtin_prompts_removes_stale_builtins() {
+        // If a loaded mode has an id that's not builtin and not custom, it's removed
+        let mut loaded = default_modes();
+        loaded.push(ModeConfig {
+            id: "removed-builtin".to_string(),
+            name: "Gone".to_string(),
+            description: "".to_string(),
+            color: "#000".to_string(),
+            system_prompt: "".to_string(),
+            enabled: true,
+            is_custom: false, // NOT custom, but not a known builtin
+            is_default: false,
+            order: 50,
+            locked: false,
+            locked_order_legacy: None,
+            locked_editing_legacy: None,
+        });
+        let merged = merge_builtin_prompts(loaded);
+        assert!(!merged.iter().any(|m| m.id == "removed-builtin"));
+    }
+
+    #[test]
+    fn test_merge_builtin_prompts_adds_missing_defaults() {
+        // If "full" is missing from loaded, it should be added back
+        let mut loaded = default_modes();
+        loaded.retain(|m| m.id != "full");
+        assert_eq!(loaded.len(), 3);
+        let merged = merge_builtin_prompts(loaded);
+        assert!(merged.iter().any(|m| m.id == "full"));
+    }
+
+    #[test]
+    fn test_merge_builtin_prompts_preserves_order_and_enabled() {
+        let mut loaded = default_modes();
+        // User disabled "medium" and changed its order
+        if let Some(m) = loaded.iter_mut().find(|m| m.id == "medium") {
+            m.enabled = false;
+            m.order = 99;
+        }
+        let merged = merge_builtin_prompts(loaded);
+        let medium = merged.iter().find(|m| m.id == "medium").unwrap();
+        // enabled and order should be preserved (merge doesn't touch them)
+        // Actually merge_builtin_prompts updates name/description/color/system_prompt
+        // but not enabled/order. Let's verify:
+        assert!(!medium.enabled);
+        assert_eq!(medium.order, 99);
+    }
+
+    // ── File-based operations ───────────────────────────────────────
+
+    #[test]
+    fn test_load_from_file_missing_returns_defaults() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("nonexistent.json");
+        let modes = load_from_file(&path);
+        assert_eq!(modes.len(), default_modes().len());
+    }
+
+    #[test]
+    fn test_save_and_load_roundtrip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("modes.json");
+        let modes = default_modes();
+        save_to_file(&path, &modes).unwrap();
+        let loaded = load_from_file(&path);
+        assert_eq!(loaded.len(), modes.len());
+        for (orig, loaded) in modes.iter().zip(loaded.iter()) {
+            assert_eq!(orig.id, loaded.id);
+        }
+    }
+
+    #[test]
+    fn test_save_creates_parent_directories() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("a").join("b").join("modes.json");
+        let result = save_to_file(&path, &default_modes());
+        assert!(result.is_ok());
+        assert!(path.exists());
+    }
+
+    // ── ModeConfig serialization ────────────────────────────────────
+
+    #[test]
+    fn test_mode_config_serialization_roundtrip() {
+        let mode = ModeConfig::new_custom(
+            "Test".to_string(),
+            "Desc".to_string(),
+            "#ff0000".to_string(),
+            "prompt".to_string(),
+            5,
+        );
+        let json = serde_json::to_string(&mode).unwrap();
+        let deserialized: ModeConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(mode.id, deserialized.id);
+        assert_eq!(mode.name, deserialized.name);
+        assert_eq!(mode.is_custom, deserialized.is_custom);
+    }
+
+    #[test]
+    fn test_mode_config_camel_case_serialization() {
+        let mode = default_modes().into_iter().next().unwrap();
+        let json = serde_json::to_value(&mode).unwrap();
+        // Should use camelCase field names
+        assert!(json.get("systemPrompt").is_some());
+        assert!(json.get("isCustom").is_some());
+        assert!(json.get("isDefault").is_some());
+    }
+
+    // ── DIRECT_MODE_ID ──────────────────────────────────────────────
+
+    #[test]
+    fn test_direct_mode_id_is_light() {
+        assert_eq!(DIRECT_MODE_ID, "light");
+    }
 }

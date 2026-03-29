@@ -16,60 +16,60 @@ npm install
 # Option A: environment variable (required on Linux/Windows; optional on macOS)
 export OPENAI_API_KEY="sk-..."
 
-# Option B: in the app after launch (macOS only): Paramètres (Settings) > API Keys > Add key
+# Option B: in the app after launch (macOS only): Settings > API Keys > Add key
 # On Linux/Windows, only Option A is available (one key via OPENAI_API_KEY).
 
 # 3. Run
 npm run tauri:dev
 ```
 
-**Données envoyées à OpenAI** : les enregistrements audio et les textes sont envoyés à OpenAI pour la transcription (Whisper) et la transformation (GPT-4o-mini). Rien n’est envoyé à un autre serveur. Ne partagez pas votre clé API et révoquez-la en cas de fuite (OpenAI Dashboard).
+**Data sent to OpenAI**: Audio recordings and text are sent to OpenAI for transcription (Whisper) and transformation (GPT-4o-mini). Nothing is sent to any other server. Do not share your API key and revoke it if leaked (OpenAI Dashboard).
 
-**Permissions** : Ghosty a besoin du micro (enregistrement) et des raccourcis clavier globaux (ex. Ctrl+Shift+Space) pour fonctionner. Sur macOS, autorisez micro et accessibilité dans Réglages Système si demandé.
+**Permissions**: Ghosty needs the microphone (recording) and global keyboard shortcuts (e.g. Ctrl+Shift+Space) to work. On macOS, allow microphone and accessibility in System Settings if prompted.
 
-**Télécharger l'app (sans compiler)** : [Releases](https://github.com/gui2eellav-largo/ghosty/releases) ou [Actions](https://github.com/gui2eellav-largo/ghosty/actions) → dernier run → Artifacts. Sinon : `npm run tauri:build` (voir README). Sur macOS, si « développeur non identifié » s'affiche : clic droit sur l'app → **Ouvrir** (puis confirmer).
+**Download the app (without building)**: [Releases](https://github.com/gui2eellav-largo/ghosty/releases) or [Actions](https://github.com/gui2eellav-largo/ghosty/actions) → latest run → Artifacts. Otherwise: `npm run tauri:build` (see README). On macOS, if "unidentified developer" appears: right-click the app → **Open** (then confirm).
 
 ---
 
-## Lancer et redémarrer l'app (débutant)
+## Launching and restarting the app (beginners)
 
-### Lancer l'app pour la première fois
+### Launch the app for the first time
 
-1. **Ouvre un terminal**  
-   - Dans Cursor / VS Code : menu **Terminal** → **New Terminal** (raccourci : **Ctrl+ù** sous Windows/Linux, **Cmd+ù** sous Mac).  
-   - Ou lance l'app **Terminal** (macOS) / **Invite de commandes** (Windows).
+1. **Open a terminal**  
+   - In Cursor / VS Code: **Terminal** menu → **New Terminal** (shortcut: **Ctrl+`** on Windows/Linux, **Cmd+`** on Mac).  
+   - Or launch the **Terminal** app (macOS) / **Command Prompt** (Windows).
 
-2. **Va dans le dossier du projet**  
-   Tape la ligne suivante en remplaçant le chemin par l’emplacement de ton projet. Puis **Entrée**.
+2. **Go to the project folder**  
+   Type the following line, replacing the path with your project location. Then press **Enter**.
    ```
-   cd /chemin/vers/ghosty
+   cd /path/to/ghosty
    ```
-   Exemple : \`cd ~/Desktop/ghosty\` ou \`cd ~/ghosty\`.
+   Example: `cd ~/Desktop/ghosty` or `cd ~/ghosty`.
 
-3. **Démarre l'app**  
-   Tape la ligne ci-dessous (sans \`\`\`bash). Puis **Entrée**.
+3. **Start the app**  
+   Type the line below (without the code fence). Then press **Enter**.
    ```
    npm run tauri:dev
    ```  
-   La première fois, ça peut prendre 1–2 minutes (compilation). Ensuite deux fenêtres s’ouvrent : la fenêtre principale Ghosty et le **widget flottant** (petit bloc avec le curseur et le bouton Dictate).
+   The first time may take 1–2 minutes (compilation). Then two windows open: the main Ghosty window and the **floating widget** (small block with cursor and Dictate button).
 
-### Redémarrer l'app (après un changement de config ou de code)
+### Restart the app (after a config or code change)
 
 1. **Arrête l'app**  
    Dans le même terminal où tourne `npm run tauri:dev`, fais **Ctrl+C** (ou **Cmd+C** sur Mac).  
    Tu dois voir que la commande s’arrête (le curseur revient et tu peux retaper une commande).
 
-2. **Relance l'app**  
-   Tape à nouveau :
+2. **Start the app again**  
+   Type again:
    ```bash
    npm run tauri:dev
    ```
-   Puis **Entrée**.  
-   Les fenêtres se rouvrent avec la nouvelle version.
+   Then press **Enter**.  
+   The windows reopen with the new version.
 
-**En résumé** :  
-- **Lancer** = \`npm run tauri:dev\` dans le dossier du projet.  
-- **Redémarrer** = **Ctrl+C** dans le terminal, puis `npm run tauri:dev` à nouveau.
+**Summary**:  
+- **Launch** = `npm run tauri:dev` in the project folder.  
+- **Restart** = **Ctrl+C** in the terminal, then `npm run tauri:dev` again.
 
 ---
 
@@ -164,7 +164,7 @@ By level of intervention (light → full):
 
 ### Add via UI
 1. Open **Modes** tab
-2. Click **"Ajouter un mode"**
+2. Click **"Add mode"**
 3. Name + Prompt
 4. Save
 5. Test immediately
@@ -247,9 +247,9 @@ By level of intervention (light → full):
 ## Troubleshooting
 
 ### No transcription
-- **Clé API** : vérifiez dans l’app (Paramètres > API Keys) ou en terminal : `echo $OPENAI_API_KEY`
-- Autorisez le micro (Réglages Système > Confidentialité et sécurité)
-- Vérifiez les erreurs dans le terminal
+- **API key**: Check in the app (Settings > API Keys) or in terminal: `echo $OPENAI_API_KEY`
+- Allow microphone (System Settings > Privacy & Security)
+- Check for errors in the terminal
 
 ### Poor transformation quality
 - Test with **different mode**

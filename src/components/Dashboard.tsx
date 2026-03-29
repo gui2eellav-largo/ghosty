@@ -29,7 +29,6 @@ import { HomeView } from "./dashboard/HomeView";
 import { ModesView } from "./dashboard/ModesView";
 import { DictionaryView } from "./dashboard/DictionaryView";
 import { GeneralSection } from "./dashboard/settings/GeneralSection";
-import { AccountSection } from "./dashboard/settings/AccountSection";
 import { SystemSection } from "./dashboard/settings/SystemSection";
 import { ShortcutsSection } from "./dashboard/settings/ShortcutsSection";
 import { RecordingSection } from "./dashboard/settings/RecordingSection";
@@ -695,12 +694,12 @@ export default function Dashboard() {
             <div className="space-y-6">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2 px-4">
-                  GENERAL
+                  {strings.settings.groups.general}
                 </div>
                 <div className="space-y-0.5">
                   {([
-                    { id: "general" as const, label: "General", icon: Settings },
-                    { id: "system" as const, label: "System", icon: Terminal },
+                    { id: "general" as const, label: strings.settings.general.title, icon: Settings },
+                    { id: "system" as const, label: strings.settings.system.title, icon: Terminal },
                   ]).map((section) => (
                     <button
                       key={section.id}
@@ -720,13 +719,12 @@ export default function Dashboard() {
               </div>
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2 px-4">
-                  CONFIGURATION
+                  {strings.settings.groups.setup}
                 </div>
                 <div className="space-y-0.5">
                   {([
-                    { id: "shortcuts" as const, label: "Shortcuts", icon: Keyboard },
-                    { id: "recording" as const, label: "Recording", icon: Mic },
-                    { id: "models" as const, label: "Models", icon: Zap },
+                    { id: "api" as const, label: strings.settings.apiKeys.title, icon: Key },
+                    { id: "models" as const, label: strings.settings.models.title, icon: Zap },
                   ]).map((section) => (
                     <button
                       key={section.id}
@@ -746,50 +744,27 @@ export default function Dashboard() {
               </div>
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2 px-4">
-                  ACCOUNT
+                  {strings.settings.groups.configuration}
                 </div>
                 <div className="space-y-0.5">
-                  {([{ id: "account" as const, label: "Account", icon: User }]).map(
-                    (section) => (
-                      <button
-                        key={section.id}
-                        onClick={() => setActiveSettingsSection(section.id)}
-                        className={cn(
-                          uiClasses.navItem,
-                          activeSettingsSection === section.id
-                            ? uiClasses.navItemActive
-                            : uiClasses.navItemInactive
-                        )}
-                      >
-                        <section.icon size={16} />
-                        <span>{section.label}</span>
-                      </button>
-                    )
-                  )}
-                </div>
-              </div>
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-2 px-4">
-                  ADVANCED
-                </div>
-                <div className="space-y-0.5">
-                  {([{ id: "api" as const, label: "API Keys", icon: Key }]).map(
-                    (section) => (
-                      <button
-                        key={section.id}
-                        onClick={() => setActiveSettingsSection(section.id)}
-                        className={cn(
-                          uiClasses.navItem,
-                          activeSettingsSection === section.id
-                            ? uiClasses.navItemActive
-                            : uiClasses.navItemInactive
-                        )}
-                      >
-                        <section.icon size={16} />
-                        <span>{section.label}</span>
-                      </button>
-                    )
-                  )}
+                  {([
+                    { id: "shortcuts" as const, label: strings.settings.shortcuts.title, icon: Keyboard },
+                    { id: "recording" as const, label: strings.settings.recording.title, icon: Mic },
+                  ]).map((section) => (
+                    <button
+                      key={section.id}
+                      onClick={() => setActiveSettingsSection(section.id)}
+                      className={cn(
+                        uiClasses.navItem,
+                        activeSettingsSection === section.id
+                          ? uiClasses.navItemActive
+                          : uiClasses.navItemInactive
+                      )}
+                    >
+                      <section.icon size={16} />
+                      <span>{section.label}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -807,12 +782,6 @@ export default function Dashboard() {
                 setUpdateStatus={setUpdateStatus}
                 updateError={updateError}
                 setUpdateError={setUpdateError}
-              />
-            )}
-            {activeSettingsSection === "account" && (
-              <AccountSection
-                preferences={preferences}
-                updatePreferences={updatePreferences}
                 accountDisplayNameDraft={accountDisplayNameDraft}
                 setAccountDisplayNameDraft={setAccountDisplayNameDraft}
               />

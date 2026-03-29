@@ -95,7 +95,7 @@ Chaque fonctionnalité peut être livrée et testée séparément (feature small
 - **Découvrabilité** : les toggles sont déjà dans Comportement avec des libellés clairs ; pas besoin d’ajouter d’autres entrées pour ces deux options.
 - **Rollback simple** : désactiver le toggle = comportement identique à aujourd’hui (pas de son, pas de notification).
 - **Pas de migration** : les champs préfs existent déjà ; on ne touche pas au schéma des préférences.
-- **Tests manuels** : décrire dans `GUIDE-TESTS-MANUELS.md` les cas "Sound on" / "Sound off" et "System notification on" / "off" après voix et après transform selection.
+- **Manual tests**: Describe in `MANUAL-TESTING-GUIDE.md` the cases "Sound on" / "Sound off" and "System notification on" / "off" after voice and after transform selection.
 
 ---
 

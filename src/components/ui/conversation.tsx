@@ -4,6 +4,7 @@ import { ArrowDownIcon } from "lucide-react"
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom"
 
 import { cn } from "@/lib/utils"
+import { strings } from "@/lib/strings"
 import { Button } from "@/components/ui/button"
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>
@@ -40,8 +41,8 @@ export type ConversationEmptyStateProps = Omit<
 
 export const ConversationEmptyState = ({
   className,
-  title = "No messages yet",
-  description = "Start a conversation to see messages here",
+  title = strings.conversation.noMessages,
+  description = strings.conversation.startConversation,
   icon,
   children,
   ...props

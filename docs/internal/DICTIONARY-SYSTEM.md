@@ -86,7 +86,7 @@ const [isAddWordModalOpen, setIsAddWordModalOpen] = useState(false);
 const [searchQuery, setSearchQuery] = useState("");
 ```
 
-## Flux de données
+## Data flow
 
 ```
 1. User clicks "Add Word"
@@ -108,15 +108,15 @@ const [searchQuery, setSearchQuery] = useState("");
 
 ## Utilisation
 
-### Ajouter un mot
+### Add a word
 
 1. Aller dans l'onglet "Dictionary"
-2. Cliquer sur "Add Word"
-3. Remplir :
+2. Click "Add Word"
+3. Fill in:
    - Word : `Tauri` (requis)
    - Type : `Framework` (requis)
    - Pronunciation : `tow-ree` (optionnel)
-4. Cliquer sur "Add to Dictionary"
+4. Click "Add to Dictionary"
 
 ### Rechercher
 
@@ -125,11 +125,11 @@ Utiliser la barre de recherche pour filtrer par mot ou type.
 ### Import/Export
 
 **Export :**
-1. Cliquer sur "Export"
+1. Click "Export"
 2. Télécharge `ghosty-dictionary-{timestamp}.json`
 
 **Import :**
-1. Cliquer sur "Import"
+1. Click "Import"
 2. Sélectionner un fichier JSON contenant `DictionaryEntry[]`
 3. Les doublons sont ignorés automatiquement
 
@@ -146,7 +146,7 @@ Utiliser la barre de recherche pour filtrer par mot ou type.
 ]
 ```
 
-## Améliorations futures possibles
+## Possible future improvements
 
 ### Phase 2
 - [ ] Édition inline des entrées
@@ -185,7 +185,7 @@ Utiliser la barre de recherche pour filtrer par mot ou type.
 - Pas de support des homophones
 - Pas de gestion des accents/diacritiques spécifiques
 
-## Dépendances ajoutées
+## Added dependencies
 
 ### Rust (Cargo.toml)
 ```toml
@@ -196,15 +196,15 @@ uuid = { version = "1", features = ["v4"] }  # Déjà présent
 ### TypeScript
 Aucune nouvelle dépendance - utilisation des bibliothèques existantes (React, Tauri).
 
-## Tests recommandés
+## Recommended tests
 
-1. ✅ Ajouter un mot simple : "Rust" → Type: "Language"
+1. ✅ Add a simple word: "Rust" → Type: "Language"
 2. ✅ Tenter d'ajouter un doublon → Erreur attendue
 3. ✅ Rechercher "rust" → Doit trouver "Rust" (case insensitive)
 4. ✅ Supprimer une entrée → Confirmation requise
 5. ✅ Exporter → Fichier JSON téléchargé
 6. ✅ Importer le fichier exporté → Doublons ignorés
-7. ✅ Dicter un mot du dictionnaire → Vérifier la précision améliorée
+7. ✅ Dictate a dictionary word → Verify improved accuracy
 
 ## Support
 

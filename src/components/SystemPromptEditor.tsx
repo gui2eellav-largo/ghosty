@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { strings } from "@/lib/strings";
 import { api } from "@/api/tauri";
 import { IconButton } from "./ui/icon-button";
 
@@ -85,8 +86,8 @@ export const SystemPromptEditor = ({
       >
         <IconButton
           icon={<Sparkles size={12} />}
-          aria-label="Improve prompt"
-          title="Improve prompt"
+          aria-label={strings.systemPromptEditor.improvePrompt}
+          title={strings.systemPromptEditor.improvePrompt}
           size="sm"
           disabled={!canImprove}
           onClick={handleImprove}
@@ -94,8 +95,8 @@ export const SystemPromptEditor = ({
         />
         <IconButton
           icon={<Undo2 size={12} />}
-          aria-label="Undo"
-          title="Undo"
+          aria-label={strings.systemPromptEditor.undo}
+          title={strings.systemPromptEditor.undo}
           size="sm"
           disabled={!canUndo}
           onClick={handleUndo}

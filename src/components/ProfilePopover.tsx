@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uiClasses } from "@/lib/design-tokens";
+import { strings } from "@/lib/strings";
 
 export interface ProfilePopoverProps {
   isOpen: boolean;
@@ -29,10 +30,7 @@ export function ProfilePopover({
 
   if (!isOpen) return null;
 
-  const wordsLabel =
-    wordsGenerated >= 1000
-      ? `${(wordsGenerated / 1000).toFixed(1)}K words generated`
-      : `${wordsGenerated} words generated`;
+  const wordsLabel = strings.profile.wordsGenerated(wordsGenerated);
 
   return (
     <div
@@ -59,9 +57,9 @@ export function ProfilePopover({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground truncate">
-            {displayName.trim() || "Guest"}
+            {displayName.trim() || strings.profile.guest}
           </p>
-          <p className="text-xs text-muted-foreground">Connect your account</p>
+          <p className="text-xs text-muted-foreground">{strings.profile.connectAccount}</p>
         </div>
       </div>
       <p className="text-xs text-muted-foreground mb-3">{wordsLabel}</p>
@@ -73,7 +71,7 @@ export function ProfilePopover({
         }}
         className={cn(uiClasses.buttonGhost, "w-full justify-center text-sm py-2")}
       >
-        Manage account
+        {strings.profile.manageAccount}
       </button>
     </div>
   );

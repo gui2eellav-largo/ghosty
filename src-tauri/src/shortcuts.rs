@@ -262,3 +262,226 @@ pub fn keys_to_shortcut_string(keys: &[String]) -> Result<String, String> {
     s.push_str(&key_part);
     Ok(s)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── keys_to_shortcut_string ─────────────────────────────────────
+
+    #[test]
+    fn test_parse_ctrl_space() {
+        let result = keys_to_shortcut_string(&[
+            "Ctrl".to_string(),
+            "Space".to_string(),
+        ]);
+        assert_eq!(result.unwrap(), "control+Space");
+    }
+
+    #[test]
+    fn test_parse_ctrl_shift_space() {
+        let result = keys_to_shortcut_string(&[
+            "Ctrl".to_string(),
+            "Shift".to_string(),
+            "Space".to_string(),
+        ]);
+        assert_eq!(result.unwrap(), "control+shift+Space");
+    }
+
+    #[test]
+    fn test_parse_cmd_shift_d() {
+        let result = keys_to_shortcut_string(&[
+            "Cmd".to_string(),
+            "Shift".to_string(),
+            "D".to_string(),
+        ]);
+        assert_eq!(result.unwrap(), "super+shift+KeyD");
+    }
+
+    #[test]
+    fn test_parse_single_letter_gets_key_prefix() {
+        let result = keys_to_shortcut_string(&[
+            "Ctrl".to_string(),
+            "V".to_string(),
+        ]);
+        assert_eq!(result.unwrap(), "control+KeyV");
+    }
+
+    #[test]
+    fn test_parse_escape_alone() {
+        let result = keys_to_shortcut_string(&["Escape".to_string()]);
+        assert_eq!(result.unwrap(), "KeyESCAPE");
+    }
+
+    #[test]
+    fn test_parse_alt_option_alias() {
+        let r1 = keys_to_shortcut_string(&["Alt".to_string(), "A".to_string()]);
+        let r2 = keys_to_shortcut_string(&["Option".to_string(), "A".to_string()]);
+        assert_eq!(r1.unwrap(), r2.unwrap());
+    }
+
+    #[test]
+    fn test_parse_command_aliases() {
+        // "Cmd", "Command", "Super", "Meta" should all map to "super"
+        for alias in &["Cmd", "Command", "Super", "Meta"] {
+            let result = keys_to_shortcut_string(&[alias.to_string(), "X".to_string()]);
+            assert!(result.unwrap().starts_with("super+"), "Failed for alias: {}", alias);
+        }
+    }
+
+    #[test]
+    fn test_parse_empty_keys_fails() {
+        let result = keys_to_shortcut_string(&[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_fn_key_rejected() {
+        let result = keys_to_shortcut_string(&["Fn".to_string(), "F5".to_string()]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Fn"));
+    }
+
+    #[test]
+    fn test_parse_two_main_keys_rejected() {
+        let result = keys_to_shortcut_string(&["A".to_string(), "B".to_string()]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("more than one main key"));
+    }
+
+    #[test]
+    fn test_parse_modifiers_only_no_main_key() {
+        let result = keys_to_shortcut_string(&["Ctrl".to_string(), "Shift".to_string()]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("no main key"));
+    }
+
+    #[test]
+    fn test_parse_space_alone_rejected() {
+        let result = keys_to_shortcut_string(&["Space".to_string()]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Space alone"));
+    }
+
+    // ── ShortcutConfig ──────────────────────────────────────────────
+
+    #[test]
+    fn test_shortcut_config_new() {
+        let sc = ShortcutConfig::new(
+            "Test".to_string(),
+            "A test shortcut".to_string(),
+            vec!["Ctrl".to_string(), "T".to_string()],
+            ShortcutAction::OpenDashboard,
+        );
+        assert!(!sc.id.is_empty());
+        assert!(sc.enabled);
+        assert_eq!(sc.name, "Test");
+    }
+
+    #[test]
+    fn test_shortcut_config_keys_string() {
+        let sc = ShortcutConfig::new(
+            "Test".to_string(),
+            "desc".to_string(),
+            vec!["Ctrl".to_string(), "Shift".to_string(), "V".to_string()],
+            ShortcutAction::PasteLastOutput,
+        );
+        assert_eq!(sc.keys_string(), "Ctrl+Shift+V");
+    }
+
+    // ── default_shortcuts ───────────────────────────────────────────
+
+    #[test]
+    fn test_default_shortcuts_not_empty() {
+        let defaults = default_shortcuts();
+        assert!(!defaults.is_empty());
+    }
+
+    #[test]
+    fn test_default_shortcuts_has_push_to_talk() {
+        let defaults = default_shortcuts();
+        assert!(defaults.iter().any(|s| s.id == "push-to-talk"));
+    }
+
+    #[test]
+    fn test_default_shortcuts_has_stop_recording() {
+        let defaults = default_shortcuts();
+        assert!(defaults.iter().any(|s| s.id == "stop-recording"));
+    }
+
+    #[test]
+    fn test_default_shortcuts_all_enabled() {
+        let defaults = default_shortcuts();
+        for s in &defaults {
+            assert!(s.enabled, "Default shortcut '{}' should be enabled", s.id);
+        }
+    }
+
+    #[test]
+    fn test_default_shortcuts_unique_ids() {
+        let defaults = default_shortcuts();
+        let mut seen = std::collections::HashSet::new();
+        for s in &defaults {
+            assert!(seen.insert(&s.id), "Duplicate shortcut id: {}", s.id);
+        }
+    }
+
+    // ── ShortcutAction serialization ────────────────────────────────
+
+    #[test]
+    fn test_shortcut_action_serialization_roundtrip() {
+        let actions = vec![
+            ShortcutAction::StartRecording,
+            ShortcutAction::StopRecording,
+            ShortcutAction::PushToTalk,
+            ShortcutAction::ToggleRecording,
+            ShortcutAction::OpenDashboard,
+            ShortcutAction::ToggleFloatingBar,
+            ShortcutAction::PasteLastOutput,
+            ShortcutAction::ActivateMode { mode_id: "light".to_string() },
+        ];
+        for action in &actions {
+            let json = serde_json::to_string(action).unwrap();
+            let deserialized: ShortcutAction = serde_json::from_str(&json).unwrap();
+            let json2 = serde_json::to_string(&deserialized).unwrap();
+            assert_eq!(json, json2, "Roundtrip failed for action: {:?}", action);
+        }
+    }
+
+    // ── File-based operations (with tempdir) ────────────────────────
+
+    #[test]
+    fn test_load_from_file_missing_returns_defaults() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("nonexistent.json");
+        let shortcuts = load_from_file(&path);
+        let defaults = default_shortcuts();
+        assert_eq!(shortcuts.len(), defaults.len());
+    }
+
+    #[test]
+    fn test_save_and_load_roundtrip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("shortcuts.json");
+        let shortcuts = vec![ShortcutConfig::new(
+            "Test".to_string(),
+            "desc".to_string(),
+            vec!["Ctrl".to_string(), "T".to_string()],
+            ShortcutAction::OpenDashboard,
+        )];
+        save_to_file(&path, &shortcuts).unwrap();
+        let loaded = load_from_file(&path);
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].name, "Test");
+    }
+
+    #[test]
+    fn test_save_creates_parent_dirs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("nested").join("dir").join("shortcuts.json");
+        let shortcuts = default_shortcuts();
+        let result = save_to_file(&path, &shortcuts);
+        assert!(result.is_ok());
+        assert!(path.exists());
+    }
+}

@@ -1,59 +1,38 @@
-import { useEffect, useRef, useState } from "react";
-import { Archive, CheckCheck, Filter, Monitor, MoreHorizontal } from "lucide-react";
+import { useEffect } from "react";
+import { Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { uiClasses } from "@/lib/design-tokens";
+import { strings } from "@/lib/strings";
 import { IconButton } from "./ui/icon-button";
-
-type OpenMenu = null | "filter" | "more";
+import type { CorrectionNotification } from "@/types";
 
 export interface NotificationsPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  notifications: unknown[];
+  correctionNotifications: CorrectionNotification[];
+  onAcceptCorrection: (n: CorrectionNotification) => void;
+  onDismissCorrection: (id: string) => void;
 }
 
 export function NotificationsPanel({
   isOpen,
   onClose,
-  notifications,
+  correctionNotifications,
+  onAcceptCorrection,
+  onDismissCorrection,
 }: NotificationsPanelProps) {
-  const [openMenu, setOpenMenu] = useState<OpenMenu>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const openMenuRef = useRef(openMenu);
-  openMenuRef.current = openMenu;
-
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (openMenuRef.current) {
-        setOpenMenu(null);
-      } else {
-        onClose();
-      }
+      onClose();
     };
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
-  useEffect(() => {
-    if (!isOpen) setOpenMenu(null);
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!openMenu) return;
-    const handleClick = (e: MouseEvent) => {
-      const el = headerRef.current;
-      if (el && !el.contains(e.target as Node)) setOpenMenu(null);
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [openMenu]);
-
   if (!isOpen) return null;
 
-  const isEmpty = notifications.length === 0;
-  const hasNotifications = !isEmpty;
+  const isEmpty = correctionNotifications.length === 0;
 
   return (
     <div
@@ -62,109 +41,10 @@ export function NotificationsPanel({
         "animate-in fade-in slide-in-from-top-1 duration-150"
       )}
       role="dialog"
-      aria-label="Notifications"
+      aria-label={strings.notifications.title}
     >
-      <div
-        ref={headerRef}
-        className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border"
-      >
-        <h2 className="text-sm font-semibold text-foreground">Notifications</h2>
-        <div className="flex items-center gap-0.5">
-          <div className="relative">
-            <IconButton
-              icon={<Filter size={14} />}
-              aria-label="Filter notifications"
-              aria-expanded={openMenu === "filter"}
-              variant="ghost"
-              size="sm"
-              onClick={() => setOpenMenu((m) => (m === "filter" ? null : "filter"))}
-            />
-            {openMenu === "filter" && (
-              <div
-                className={cn(
-                  "absolute right-0 top-full mt-1 z-[60] min-w-[140px] rounded-lg border border-border bg-popover shadow-lg py-1",
-                  "animate-in fade-in slide-in-from-top-1 duration-150"
-                )}
-                role="menu"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
-                    uiClasses.buttonGhost
-                  )}
-                  onClick={() => setOpenMenu(null)}
-                >
-                  <Monitor size={14} className="shrink-0 text-muted-foreground" />
-                  <span>New</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
-                    uiClasses.buttonGhost
-                  )}
-                  onClick={() => setOpenMenu(null)}
-                >
-                  <Archive size={14} className="shrink-0 text-muted-foreground" />
-                  <span>Archived</span>
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="relative">
-            <IconButton
-              icon={<MoreHorizontal size={14} />}
-              aria-label="More options"
-              aria-expanded={openMenu === "more"}
-              variant="ghost"
-              size="sm"
-              onClick={() => setOpenMenu((m) => (m === "more" ? null : "more"))}
-            />
-            {openMenu === "more" && (
-              <div
-                className={cn(
-                  "absolute right-0 top-full mt-1 z-[60] min-w-[180px] rounded-lg border border-border bg-popover shadow-lg py-1",
-                  "animate-in fade-in slide-in-from-top-1 duration-150"
-                )}
-                role="menu"
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
-                    hasNotifications
-                      ? uiClasses.buttonGhost
-                      : "text-muted-foreground opacity-60 cursor-not-allowed pointer-events-none"
-                  )}
-                  disabled={!hasNotifications}
-                  onClick={() => hasNotifications && setOpenMenu(null)}
-                >
-                  <CheckCheck size={14} className="shrink-0 text-muted-foreground" />
-                  <span>Mark all as read</span>
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    "w-full flex items-center gap-2 px-3 py-2 text-left text-sm",
-                    hasNotifications
-                      ? uiClasses.buttonGhost
-                      : "text-muted-foreground opacity-60 cursor-not-allowed pointer-events-none"
-                  )}
-                  disabled={!hasNotifications}
-                  onClick={() => hasNotifications && setOpenMenu(null)}
-                >
-                  <Archive size={14} className="shrink-0 text-muted-foreground" />
-                  <span>Archive all</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-border">
+        <h2 className="text-sm font-semibold text-foreground">{strings.notifications.title}</h2>
       </div>
       <div className="flex-1 overflow-auto p-4">
         {isEmpty ? (
@@ -187,15 +67,57 @@ export function NotificationsPanel({
                 <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
               </svg>
             </div>
-            <p className="text-sm font-medium text-foreground mb-1">No notifications yet</p>
+            <p className="text-sm font-medium text-foreground mb-1">{strings.notifications.noNotifications}</p>
             <p className="text-xs text-muted-foreground max-w-[220px]">
-              You&apos;ll see tips, milestones, and new feature announcements here.
+              {strings.notifications.notificationsHint}
             </p>
           </div>
         ) : (
-          <ul className="space-y-1">
-            {notifications.map((_, i) => (
-              <li key={i} className="text-sm text-muted-foreground py-2" />
+          <ul className="space-y-2">
+            {correctionNotifications.map((n) => (
+              <li
+                key={n.id}
+                className={cn(
+                  "flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg",
+                  "border border-black/[0.06] dark:border-white/[0.06]",
+                  "bg-black/[0.02] dark:bg-white/[0.02]"
+                )}
+              >
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                  <div
+                    className="shrink-0 rounded-full"
+                    style={{ width: 6, height: 6, minWidth: 6, backgroundColor: "#10b981" }}
+                    aria-hidden
+                  />
+                  <div className="flex items-center gap-1.5 text-xs min-w-0">
+                    <span className="text-muted-foreground line-through truncate">{n.candidate.misspelling}</span>
+                    <span className="text-muted-foreground/40">→</span>
+                    <span className="font-medium text-foreground truncate">{n.candidate.correction}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onAcceptCorrection(n)}
+                    aria-label={strings.notifications.addToDictionary(n.candidate.correction)}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium",
+                      "text-foreground bg-black/5 dark:bg-white/5",
+                      "hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                    )}
+                  >
+                    <Plus size={11} />
+                    {strings.notifications.add}
+                  </button>
+                  <IconButton
+                    icon={<X size={12} />}
+                    aria-label={strings.notifications.dismiss}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDismissCorrection(n.id)}
+                  />
+                </div>
+              </li>
             ))}
           </ul>
         )}

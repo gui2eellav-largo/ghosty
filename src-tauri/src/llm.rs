@@ -2,6 +2,7 @@ use crate::http_client;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use tauri::Emitter;
 
 const MAX_RETRIES: u32 = 3;
 
@@ -111,6 +112,38 @@ fn build_system_prompt(mode_prompt: &str) -> String {
     mode_prompt.to_string()
 }
 
+/// Resolve LLM provider config: API key, base URL, and model.
+fn resolve_llm_config(prefs: &crate::preferences::Preferences) -> Result<(String, String, String), String> {
+    let provider = prefs.llm.provider.as_str();
+    match provider {
+        "groq" => {
+            let key = crate::secrets::get_key_for_provider("groq")
+                .map_err(|_| "No Groq API key found. Add a Groq key (gsk_...) in Settings → API Keys.".to_string())?;
+            let url = prefs.advanced.llm_base_url
+                .as_deref()
+                .unwrap_or("https://api.groq.com/openai")
+                .trim_end_matches('/')
+                .to_string();
+            // Default to llama-3.1-8b-instant if user hasn't picked a Groq model
+            let model = if prefs.llm.model.starts_with("llama") || prefs.llm.model.starts_with("mixtral") || prefs.llm.model.starts_with("qwen") {
+                prefs.llm.model.clone()
+            } else {
+                "llama-3.1-8b-instant".to_string()
+            };
+            Ok((key, url, model))
+        }
+        _ => {
+            let key = crate::secrets::get_api_key_cached()?;
+            let url = prefs.advanced.llm_base_url
+                .as_deref()
+                .unwrap_or("https://api.openai.com")
+                .trim_end_matches('/')
+                .to_string();
+            Ok((key, url, prefs.llm.model.clone()))
+        }
+    }
+}
+
 async fn transform_text_streaming_internal(
     text: &str,
     mode_prompt: &str,
@@ -118,21 +151,15 @@ async fn transform_text_streaming_internal(
     cancel: tokio_util::sync::CancellationToken,
     temperature_override: Option<f32>,
 ) -> Result<String, String> {
-    let api_key = crate::secrets::get_api_key_cached()?;
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
+    let (api_key, base_url, model) = resolve_llm_config(&prefs)?;
     let timeout_secs = prefs.llm.timeout_secs.clamp(15, 120);
-    let base_url = prefs
-        .advanced
-        .llm_base_url
-        .as_deref()
-        .unwrap_or("https://api.openai.com")
-        .trim_end_matches('/');
     let url = format!("{}/v1/chat/completions", base_url);
 
     let temperature = temperature_override.unwrap_or(prefs.llm.temperature).clamp(0.0, 2.0);
 
     let request = ChatRequest {
-        model: prefs.llm.model.clone(),
+        model,
         messages: vec![
             Message {
                 role: "system".to_string(),
@@ -194,6 +221,7 @@ async fn transform_text_streaming_internal(
                         if let Some(choice) = choices.first() {
                             if let Some(ref delta) = choice.delta.content {
                                 content.push_str(delta);
+                                let _ = app.emit("llm_chunk", content.trim().to_string());
                             }
                         }
                     }
@@ -207,19 +235,13 @@ async fn transform_text_streaming_internal(
 
 /// Améliore un system prompt (meta: clarté, structure, concision, alignement Ghosty). Appel non-streaming.
 pub async fn improve_system_prompt(prompt: &str, app: &tauri::AppHandle) -> Result<String, String> {
-    let api_key = crate::secrets::get_api_key_cached()?;
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
+    let (api_key, base_url, model) = resolve_llm_config(&prefs)?;
     let timeout_secs = prefs.llm.timeout_secs.clamp(15, 120);
-    let base_url = prefs
-        .advanced
-        .llm_base_url
-        .as_deref()
-        .unwrap_or("https://api.openai.com")
-        .trim_end_matches('/');
     let url = format!("{}/v1/chat/completions", base_url);
 
     let request = ChatRequest {
-        model: prefs.llm.model.clone(),
+        model,
         messages: vec![
             Message {
                 role: "system".to_string(),
@@ -273,4 +295,136 @@ fn parse_one_line(buf: &[u8]) -> Option<(String, Vec<u8>)> {
     let line = String::from_utf8_lossy(&buf[..pos]).to_string();
     let rest = buf[pos + 1..].to_vec();
     Some((line, rest))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── parse_one_line ──────────────────────────────────────────────
+
+    #[test]
+    fn test_parse_one_line_basic() {
+        let buf = b"hello\nworld\n";
+        let (line, rest) = parse_one_line(buf).unwrap();
+        assert_eq!(line, "hello");
+        assert_eq!(rest, b"world\n");
+    }
+
+    #[test]
+    fn test_parse_one_line_no_newline() {
+        let buf = b"no newline here";
+        assert!(parse_one_line(buf).is_none());
+    }
+
+    #[test]
+    fn test_parse_one_line_empty_line() {
+        let buf = b"\nrest";
+        let (line, rest) = parse_one_line(buf).unwrap();
+        assert_eq!(line, "");
+        assert_eq!(rest, b"rest");
+    }
+
+    #[test]
+    fn test_parse_one_line_empty_buffer() {
+        let buf = b"";
+        assert!(parse_one_line(buf).is_none());
+    }
+
+    #[test]
+    fn test_parse_one_line_multiple_lines() {
+        let mut buf = b"line1\nline2\nline3\n".to_vec();
+        let (line1, rest) = parse_one_line(&buf).unwrap();
+        assert_eq!(line1, "line1");
+        buf = rest;
+        let (line2, rest) = parse_one_line(&buf).unwrap();
+        assert_eq!(line2, "line2");
+        buf = rest;
+        let (line3, _rest) = parse_one_line(&buf).unwrap();
+        assert_eq!(line3, "line3");
+    }
+
+    #[test]
+    fn test_parse_one_line_sse_data() {
+        let buf = b"data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}\n\n";
+        let (line, rest) = parse_one_line(buf).unwrap();
+        assert!(line.starts_with("data: "));
+        // Remainder starts with the second \n
+        let (empty_line, _) = parse_one_line(&rest).unwrap();
+        assert_eq!(empty_line, "");
+    }
+
+    #[test]
+    fn test_parse_one_line_done_marker() {
+        let buf = b"data: [DONE]\n";
+        let (line, rest) = parse_one_line(buf).unwrap();
+        assert_eq!(line, "data: [DONE]");
+        assert!(rest.is_empty());
+    }
+
+    // ── build_system_prompt ─────────────────────────────────────────
+
+    #[test]
+    fn test_build_system_prompt_passthrough() {
+        let prompt = "You are a helpful assistant.";
+        assert_eq!(build_system_prompt(prompt), prompt);
+    }
+
+    #[test]
+    fn test_build_system_prompt_empty() {
+        assert_eq!(build_system_prompt(""), "");
+    }
+
+    // ── ChatRequest serialization ───────────────────────────────────
+
+    #[test]
+    fn test_chat_request_serialization() {
+        let req = ChatRequest {
+            model: "gpt-4o-mini".to_string(),
+            messages: vec![
+                Message { role: "system".to_string(), content: "You are helpful.".to_string() },
+                Message { role: "user".to_string(), content: "Hello".to_string() },
+            ],
+            temperature: 0.3,
+            max_tokens: 1024,
+            stream: true,
+        };
+        let json = serde_json::to_value(&req).unwrap();
+        assert_eq!(json["model"], "gpt-4o-mini");
+        assert_eq!(json["stream"], true);
+        assert_eq!(json["messages"].as_array().unwrap().len(), 2);
+    }
+
+    // ── StreamChunk deserialization ──────────────────────────────────
+
+    #[test]
+    fn test_stream_chunk_deserialization() {
+        let json = r#"{"choices":[{"delta":{"content":"Hello"}}]}"#;
+        let chunk: StreamChunk = serde_json::from_str(json).unwrap();
+        let binding = chunk.choices.unwrap();
+        let content = binding[0].delta.content.as_ref().unwrap();
+        assert_eq!(content, "Hello");
+    }
+
+    #[test]
+    fn test_stream_chunk_empty_delta() {
+        let json = r#"{"choices":[{"delta":{}}]}"#;
+        let chunk: StreamChunk = serde_json::from_str(json).unwrap();
+        assert!(chunk.choices.unwrap()[0].delta.content.is_none());
+    }
+
+    #[test]
+    fn test_stream_chunk_no_choices() {
+        let json = r#"{}"#;
+        let chunk: StreamChunk = serde_json::from_str(json).unwrap();
+        assert!(chunk.choices.is_none());
+    }
+
+    // ── IMPROVE_SYSTEM_PROMPT_META ──────────────────────────────────
+
+    #[test]
+    fn test_improve_system_prompt_meta_not_empty() {
+        assert!(!IMPROVE_SYSTEM_PROMPT_META.is_empty());
+        assert!(IMPROVE_SYSTEM_PROMPT_META.contains("expert"));
+    }
 }

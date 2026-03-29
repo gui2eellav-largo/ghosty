@@ -1,62 +1,62 @@
-# Vérification documentation / code – Résumé des écarts
+# Documentation / code verification – Gap summary
 
-**Date** : 2026-02-13  
-**Objectif** : Aligner la doc restante avec le code et la vision actuelle de l’app.
+**Date**: 2026-02-13  
+**Goal**: Align remaining docs with current code and app vision.
 
-**Mises à jour effectuées** : README (4 modes), DICTIONARY-SYSTEM (misspellings + API), STRATEGIE (son/notif implémentés), GUIDE-TESTS-MANUELS (numérotation 4–6), SHORTCUTS-SYSTEM-COMPLETE (état actuel + sections), GHOSTY-MODES-METHODOLOGY (alignement code + built-ins), DICTIONARY-QUICKSTART (exemples misspellings/update).
-
----
-
-## 1. Résumé des écarts identifiés
-
-| Doc | Écart | Gravité |
-|-----|--------|--------|
-| **DICTIONARY-SYSTEM.md** | `DictionaryEntry` ne mentionne pas `misspellings`. L’API `add_dictionary_entry` accepte `misspellings` (optionnel). | Moyen |
-| **DICTIONARY-QUICKSTART.md** | Exemples `add_dictionary_entry` sans `misspellings`. `import_dictionary_entries` attend `entries: Vec<DictionaryEntry>` (avec `type` / `entry_type` selon sérialisation). | Faible |
-| **SHORTCUTS-SYSTEM-COMPLETE.md** | Raccourcis par défaut : doc indique « Cmd+Shift+Space », « Cmd+Shift+D ». Le code a `Ctrl+Space` (PushToTalk), `Ctrl+Shift+Space` (ToggleRecording), plus Paste last, Command mode, etc. Liste des sections Settings : « Transcription », « LLM Settings » → en réalité une seule section **Models**. Actions : manquent PushToTalk, ToggleRecording, PasteLastOutput. | Moyen |
-| **GHOSTY-MODES-METHODOLOGY.md** | Template mode avec `category` et `prompt` ; le code a `systemPrompt` (pas `category`). Modes built-in réels : **Direct** (light), **Shape** (medium), **Reframe** (strong), **Build** (full) – pas « Prompt Enhancer (Dense) » etc. La doc est une méthodologie (référence pour concevoir des modes), pas un reflet exact de l’UI. | Faible si clarifié |
-| **STRATEGIE-IMPLEMENTATION-FONCTIONNALITES.md** | Décrit le plan pour son et notification comme « à faire ». Dans le code, `sound_on_complete` et `system_notification` sont **déjà branchés** (audio.rs, lib.rs). La stratégie est donc en grande partie implémentée. | Moyen |
-| **README (racine)** | « 5 built-in modes : Hands-off, Light edit, Shape, Reframe, Build ». Le code a **4** modes : **Direct**, Shape, Reframe, Build. « Hands-off » / « Light edit » ne correspondent pas aux noms actuels (Direct = vos mots, formatage léger). | Moyen |
-| **SERVICES-CLIC-DROIT-MACOS.md** | Déjà à jour : indique que la fonctionnalité est en suspens et `ENABLE_RIGHT_CLICK_SERVICES` à `false`. | OK |
-| **PRODUCTION-READINESS.md** | Cohérent avec le code (sécurité, keychain, build). | OK |
-| **QUICKSTART.md** | Récemment mis à jour (clé in-app, données OpenAI, téléchargement). | OK |
-| **UI-RULES.md** | Référence `uiClasses` et patterns ; toujours valide. | OK |
+**Updates applied**: README (4 modes), DICTIONARY-SYSTEM (misspellings + API), STRATEGIE (sound/notif implemented), MANUAL-TESTING-GUIDE (sections 4–6), SHORTCUTS-SYSTEM-COMPLETE (current state + sections), GHOSTY-MODES-METHODOLOGY (code alignment + built-ins), DICTIONARY-QUICKSTART (misspellings/update examples).
 
 ---
 
-## 2. Recommandations pour aligner la documentation
+## 1. Identified gaps
 
-### 2.1 À mettre à jour en priorité
+| Doc | Gap | Severity |
+|-----|-----|----------|
+| **DICTIONARY-SYSTEM.md** | `DictionaryEntry` does not mention `misspellings`. API `add_dictionary_entry` accepts `misspellings` (optional). | Medium |
+| **DICTIONARY-QUICKSTART.md** | `add_dictionary_entry` examples without `misspellings`. `import_dictionary_entries` expects `entries: Vec<DictionaryEntry>` (with `type` / `entry_type` per serialization). | Low |
+| **SHORTCUTS-SYSTEM-COMPLETE.md** | Default shortcuts: doc says "Cmd+Shift+Space", "Cmd+Shift+D". Code has `Ctrl+Space` (PushToTalk), `Ctrl+Shift+Space` (ToggleRecording), plus Paste last, Command mode, etc. Settings sections: "Transcription", "LLM Settings" → in reality a single **Models** section. Missing actions: PushToTalk, ToggleRecording, PasteLastOutput. | Medium |
+| **GHOSTY-MODES-METHODOLOGY.md** | Mode template with `category` and `prompt`; code has `systemPrompt` (no `category`). Actual built-in modes: **Direct** (light), **Shape** (medium), **Reframe** (strong), **Build** (full) – not "Prompt Enhancer (Dense)" etc. Doc is methodology (reference for designing modes), not an exact UI reflection. | Low if clarified |
+| **STRATEGIE-IMPLEMENTATION-FONCTIONNALITES.md** | Describes sound and notification plan as "to do". In code, `sound_on_complete` and `system_notification` are **already wired** (audio.rs, lib.rs). Strategy is largely implemented. | Medium |
+| **README (root)** | "5 built-in modes: Hands-off, Light edit, Shape, Reframe, Build". Code has **4** modes: **Direct**, Shape, Reframe, Build. "Hands-off" / "Light edit" do not match current names (Direct = your words, light formatting). | Medium |
+| **SERVICES-CLIC-DROIT-MACOS.md** | Already up to date: states feature is pending and `ENABLE_RIGHT_CLICK_SERVICES` is `false`. | OK |
+| **PRODUCTION-READINESS.md** | Consistent with code (security, keychain, build). | OK |
+| **QUICKSTART.md** | Recently updated (in-app key, OpenAI data, download). | OK |
+| **UI-RULES.md** | References `uiClasses` and patterns; still valid. | OK |
 
-1. **README (racine)**  
-   - Remplacer la liste des 5 modes par les **4** modes réels : **Direct**, **Shape**, **Reframe**, **Build**, avec une courte description (ex. Direct = vos mots, formatage léger ; Shape = structure et polish ; etc.).
+---
+
+## 2. Recommendations to align documentation
+
+### 2.1 Priority updates
+
+1. **README (root)**  
+   - Replace the list of 5 modes with the **4** actual modes: **Direct**, **Shape**, **Reframe**, **Build**, with a short description (e.g. Direct = your words, light formatting; Shape = structure and polish; etc.).
 
 2. **SHORTCUTS-SYSTEM-COMPLETE.md**  
-   - Raccourcis par défaut : indiquer ceux définis dans `shortcuts.rs` (PushToTalk Ctrl+Space, ToggleRecording Ctrl+Shift+Space, etc.) et préciser que sur macOS l’UI peut afficher Cmd selon le mapping.
-   - Sections Settings : remplacer « Transcription » et « LLM Settings » par **Models** (une section).
-   - Ajouter les actions manquantes : PushToTalk, ToggleRecording, PasteLastOutput.
+   - Default shortcuts: document those defined in `shortcuts.rs` (PushToTalk Ctrl+Space, ToggleRecording Ctrl+Shift+Space, etc.) and note that on macOS the UI may show Cmd per mapping.
+   - Settings sections: replace "Transcription" and "LLM Settings" with **Models** (one section).
+   - Add missing actions: PushToTalk, ToggleRecording, PasteLastOutput.
 
 3. **DICTIONARY-SYSTEM.md**  
-   - Dans la structure `DictionaryEntry`, ajouter `misspellings: Vec<String>`.
-   - Dans les paramètres de `add_dictionary_entry`, mentionner `misspellings` (optionnel).
+   - In `DictionaryEntry` structure, add `misspellings: Vec<String>`.
+   - In `add_dictionary_entry` parameters, mention `misspellings` (optional).
 
 4. **STRATEGIE-IMPLEMENTATION-FONCTIONNALITES.md**  
-   - En tête ou en conclusion : préciser que **son et notification sont implémentés** (backend émet `play_completion_sound`, lecture des préfs `sound_on_complete` et `system_notification`). Le reste du doc reste utile comme référence de pattern.
+   - At the top or in conclusion: state that **sound and notification are implemented** (backend emits `play_completion_sound`, reads prefs `sound_on_complete` and `system_notification`). Rest of doc remains useful as a pattern reference.
 
-### 2.2 Clarifications utiles (optionnel)
+### 2.2 Useful clarifications (optional)
 
 6. **GHOSTY-MODES-METHODOLOGY.md**  
-   - En introduction : préciser que le doc décrit la **méthodologie** pour concevoir des modes (magic keywords, catégories) et que les **modes built-in actuels** dans l’app sont Direct, Shape, Reframe, Build (définis dans `modes.rs`). Le champ `category` du template n’existe pas dans `ModeConfig` ; le prompt décrit correspond à `systemPrompt`.
+   - In introduction: state that the doc describes the **methodology** for designing modes (magic keywords, categories) and that **current built-in modes** in the app are Direct, Shape, Reframe, Build (defined in `modes.rs`). The template's `category` field does not exist in `ModeConfig`; the described prompt corresponds to `systemPrompt`.
 
 7. **DICTIONARY-QUICKSTART.md**  
-   - Dans les exemples d’appel API, ajouter éventuellement `misspellings` quand pertinent (variantes d’orthographe).
+   - In API call examples, optionally add `misspellings` when relevant (spelling variants).
 
 ---
 
-## 3. Synthèse
+## 3. Summary
 
-- **À jour** : QUICKSTART, PRODUCTION-READINESS, SERVICES-CLIC-DROIT (avec mention « en suspens »), UI-RULES.
-- **Écarts à corriger** : README (modes), SHORTCUTS-SYSTEM-COMPLETE (défauts + sections), DICTIONARY-SYSTEM (misspellings), STRATEGIE (son/notif implémentés).
-- **Clarifications recommandées** : GHOSTY-MODES-METHODOLOGY (méthodo vs built-ins réels), DICTIONARY-QUICKSTART (misspellings dans exemples).
+- **Up to date**: QUICKSTART, PRODUCTION-READINESS, SERVICES-CLIC-DROIT (with "pending" note), UI-RULES.
+- **Gaps to fix**: README (modes), SHORTCUTS-SYSTEM-COMPLETE (defaults + sections), DICTIONARY-SYSTEM (misspellings), STRATEGIE (sound/notif implemented).
+- **Recommended clarifications**: GHOSTY-MODES-METHODOLOGY (methodology vs actual built-ins), DICTIONARY-QUICKSTART (misspellings in examples).
 
-En appliquant les mises à jour de la section 2.1, la documentation restante sera alignée avec l’état actuel du code et de la vision de l’application.
+Applying the updates in section 2.1 will align the remaining documentation with the current code and application vision.

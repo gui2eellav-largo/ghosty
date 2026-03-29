@@ -164,7 +164,7 @@ Problème complexe → "Step by step" → Pattern raisonnement séquentiel → R
 → Réponse générique, potentiellement longue
 
 "Dissect methodically. Root cause. Actionable only."
-→ 3 mots = méthodologie complète + contrainte output
+→ 3 words = full methodology + output constraint
 ```
 
 ---
@@ -233,7 +233,7 @@ Problème complexe → "Step by step" → Pattern raisonnement séquentiel → R
 **Signaux forts :**
 - Mots récurrents dans papers académiques
 - Vocabulaire technique spécialisé
-- Termes présents dans méthodologies établies
+- Terms present in established methodologies
 - Mots associés à la rigueur intellectuelle
 
 **Test empirique :**
@@ -589,7 +589,7 @@ ou
 4. **Analyser les langues spécialisées**
    - Jargon professionnel
    - Vocabulaire technique
-   - Termes de méthodologies
+   - Methodology terms
 
 ---
 
@@ -604,7 +604,7 @@ ou
 ### Lectures Recommandées
 
 - Papers sur prompting efficace
-- Documentation méthodologies (MECE, First Principles, etc.)
+- Methodology documentation (MECE, First Principles, etc.)
 - Littérature académique dans votre domaine
 
 ### Outils

@@ -1,152 +1,152 @@
-# Guide : préparation à la production
+# Production readiness guide
 
-Ce guide décrit tout ce qu’il faut faire pour que Ghosty soit prêt à être mis en ligne et utilisé en production, avec un focus sur la **sécurité** et les **bonnes pratiques** pour une première mise en production.
-
----
-
-## 1. Sécurité
-
-### 1.1 Clés API (OpenAI)
-
-**Principe** : les clés API ne doivent **jamais** être en dur dans le code, ni envoyées à un serveur autre qu’OpenAI.
-
-- **Stockage** : aujourd’hui les clés sont stockées côté backend (Rust) dans un stockage local sécurisé (ex. keyring / credential store selon l’OS). À vérifier dans le code :
-  - Aucune clé en clair dans le repo (pas de `OPENAI_API_KEY="sk-..."` dans un fichier versionné).
-  - Les clés saisies par l’utilisateur sont persistées via l’API Tauri (ex. `secrets`, `add_api_key_entry`) et jamais loguées.
-- **En production** :
-  - Chaque utilisateur utilise **sa propre** clé OpenAI (compte personnel ou entreprise). L’app ne fournit pas de clé partagée.
-  - Rappeler à l’utilisateur de ne pas partager sa clé et de la révoquer en cas de fuite (OpenAI Dashboard).
-- **Facturation** : les appels (Whisper, GPT-4o-mini) sont facturés au compte OpenAI associé à la clé. L’utilisateur doit avoir un compte OpenAI à jour.
-
-**Checklist** :
-- [ ] Aucune clé en dur dans le code ni dans `.env` versionné (`.env` dans `.gitignore`).
-- [ ] Pas de `console.log` / `println!` qui affichent des clés ou tokens.
-- [ ] Documentation utilisateur : où saisir la clé, comment la révoquer.
-
-### 1.2 Données utilisateur
-
-- **Données stockées localement** : préférences, modes personnalisés, dictionnaire, raccourcis. Elles restent sur la machine de l’utilisateur.
-- **Données envoyées à l’extérieur** :
-  - **OpenAI** : audio (Whisper) et texte (LLM). Vérifier la [politique de confidentialité OpenAI](https://openai.com/policies/privacy) et l’indiquer en une phrase dans la doc ou l’app (ex. « Les enregistrements et textes sont envoyés à OpenAI pour la transcription et la transformation »).
-- **Aucun autre serveur** : pas d’analytics, pas de télémétrie, sauf si vous en ajoutez explicitement (et alors : consentement, politique de confidentialité).
-
-**Checklist** :
-- [ ] Lister clairement quelles données partent vers OpenAI.
-- [ ] Si vous ajoutez analytics/crash reporting : consentement utilisateur + politique de confidentialité.
-
-### 1.3 Permissions de l’app
-
-Ghosty a besoin de :
-- **Micro** : pour l’enregistrement vocal.
-- **Raccourcis clavier globaux** : pour le hotkey (ex. Ctrl+Shift+Space) même quand l’app n’est pas au premier plan.
-- **Presse-papier** : pour copier le résultat et éventuellement coller.
-
-**En production** :
-- Sur macOS, l’utilisateur devra autoriser micro et accessibilité (pour les raccourcis) dans Réglages Système. Prévoir une phrase dans la doc ou une première fenêtre qui explique « Ghosty a besoin du micro et des raccourcis clavier pour fonctionner ».
-- Ne demander que ce qui est strictement nécessaire.
+This guide describes everything needed to make Ghosty ready for production use, with a focus on **security** and **best practices** for a first launch.
 
 ---
 
-## 2. Build et distribution
+## 1. Security
 
-### 2.1 Build de release
+### 1.1 API keys (OpenAI)
+
+**Principle**: API keys must **never** be hardcoded or sent to any server other than OpenAI.
+
+- **Storage**: Keys are stored on the backend (Rust) in a secure local store (e.g. keyring / credential store per OS). Verify in code:
+  - No keys in plain text in the repo (no `OPENAI_API_KEY="sk-..."` in a versioned file).
+  - Keys entered by the user are persisted via the Tauri API (e.g. `secrets`, `add_api_key_entry`) and never logged.
+- **In production**:
+  - Each user uses **their own** OpenAI key (personal or business account). The app does not provide a shared key.
+  - Remind users not to share their key and to revoke it if leaked (OpenAI Dashboard).
+- **Billing**: Calls (Whisper, GPT-4o-mini) are billed to the OpenAI account tied to the key. The user must have an up-to-date OpenAI account.
+
+**Checklist**:
+- [ ] No keys hardcoded in code or in a versioned `.env` (`.env` in `.gitignore`).
+- [ ] No `console.log` / `println!` that print keys or tokens.
+- [ ] User documentation: where to enter the key, how to revoke it.
+
+### 1.2 User data
+
+- **Data stored locally**: Preferences, custom modes, dictionary, shortcuts. They stay on the user's machine.
+- **Data sent externally**:
+  - **OpenAI**: Audio (Whisper) and text (LLM). Check [OpenAI privacy policy](https://openai.com/policies/privacy) and state in one sentence in the doc or app (e.g. "Recordings and text are sent to OpenAI for transcription and transformation").
+- **No other servers**: No analytics, no telemetry, unless you add them explicitly (and then: consent, privacy policy).
+
+**Checklist**:
+- [ ] Clearly list what data is sent to OpenAI.
+- [ ] If you add analytics/crash reporting: user consent + privacy policy.
+
+### 1.3 App permissions
+
+Ghosty needs:
+- **Microphone**: For voice recording.
+- **Global keyboard shortcuts**: For the hotkey (e.g. Ctrl+Shift+Space) even when the app is in the background.
+- **Clipboard**: To copy the result and optionally paste.
+
+**In production**:
+- On macOS, the user must allow microphone and accessibility (for shortcuts) in System Settings. Include a sentence in the doc or a first-run screen explaining "Ghosty needs the microphone and keyboard shortcuts to work".
+- Request only what is strictly necessary.
+
+---
+
+## 2. Build and distribution
+
+### 2.1 Release build
 
 ```bash
-npm run build          # compile le frontend (TypeScript + Vite)
-npm run tauri build    # produit le .app (macOS) et/ou binaires
+npm run build          # compile frontend (TypeScript + Vite)
+npm run tauri build    # produce .app (macOS) and/or binaries
 ```
 
-Les artefacts sont dans `src-tauri/target/release/` (ou équivalent selon la cible).
+Artifacts are in `src-tauri/target/release/` (or equivalent for the target).
 
-### 2.2 Signature et notarisation (macOS)
+### 2.2 Signature and notarization (macOS)
 
-Pour que les utilisateurs puissent ouvrir l’app sans « app non identifiée » :
+So users can open the app without "unidentified developer" warnings:
 
-1. **Signature de l’app** :
-   - Dans `tauri.conf.json`, section `bundle.macOS` :
-     - `signingIdentity` : mettre l’identité de votre certificat développeur Apple (ex. `"Developer ID Application: Votre Nom (TEAM_ID)"`).
-   - Sans certificat Apple, l’app peut quand même être diffusée mais macOS affichera un avertissement (contournable en clic droit → Ouvrir).
+1. **App signature**:
+   - In `tauri.conf.json`, under `bundle.macOS`:
+     - `signingIdentity`: set your Apple developer certificate identity (e.g. `"Developer ID Application: Your Name (TEAM_ID)"`).
+   - Without an Apple certificate, the app can still be distributed but macOS will show a warning (workaround: right-click → Open).
 
-2. **Notarisation** (recommandé pour distribution hors App Store) :
-   - Permet d’éviter le blocage Gatekeeper.
-   - Tauri peut intégrer la notarisation ; voir la [doc Tauri (macOS)](https://v2.tauri.app/start/build/sidecar/).
-   - Prérequis : compte Apple Developer (payant), `notarytool` ou `altool`.
+2. **Notarization** (recommended for distribution outside the App Store):
+   - Avoids Gatekeeper blocking.
+   - Tauri can integrate notarization; see [Tauri docs (macOS)](https://v2.tauri.app/start/build/sidecar/).
+   - Prerequisites: Apple Developer account (paid), `notarytool` or `altool`.
 
-3. **Identifiant de bundle** :
-   - Actuellement `com.ghosty.app`. Apple déconseille de terminer par `.app` (conflit avec l’extension du bundle). À terme, préférer par ex. `com.ghosty.desktop` ou `app.ghosty`.
+3. **Bundle identifier**:
+   - Currently `com.ghosty.app`. Apple advises against ending with `.app` (conflict with bundle extension). Prefer e.g. `com.ghosty.desktop` or `app.ghosty` going forward.
 
-**Checklist** :
-- [ ] Build release qui se lance sans erreur.
-- [ ] Décider : signature + notarisation (compte Apple) ou distribution « manuelle » avec instructions pour contourner l’avertissement.
-- [ ] Changer l’identifiant de bundle si vous suivez la recommandation Apple.
+**Checklist**:
+- [ ] Release build runs without error.
+- [ ] Decide: signature + notarization (Apple account) or "manual" distribution with instructions to work around the warning.
+- [ ] Change bundle identifier if following Apple's recommendation.
 
-### 2.3 Mises à jour automatiques (optionnel)
+### 2.3 Automatic updates (optional)
 
-Tauri propose un plugin de mise à jour (updater) : l’app peut vérifier une URL (ou un serveur) pour télécharger une nouvelle version. Utile après le premier lancement pour livrer des correctifs sans redownload complet. À configurer plus tard si besoin.
+Tauri provides an updater plugin: the app can check a URL (or server) for a new version. Useful after first install to ship fixes without a full re-download. Configure later if needed.
 
 ---
 
-## 3. Comptes et services externes
+## 3. External accounts and services
 
 ### 3.1 OpenAI
 
-- **Compte** : chaque utilisateur doit avoir un compte OpenAI et une clé API.
-- **Coûts** : Whisper + GPT-4o-mini = de l’ordre de ~0,0015 $ par commande. Les coûts sont à la charge du titulaire du compte (la clé).
-- **Limites** : respecter les rate limits OpenAI ; en cas de dépassement, l’app peut afficher une erreur claire (déjà partiellement géré selon le code).
-- **Bonnes pratiques** :
-  - Ne jamais exposer sa clé (pas de clé « partagée » pour tous les utilisateurs de l’app).
-  - Documenter comment créer une clé et où la mettre dans Ghosty.
+- **Account**: Each user must have an OpenAI account and an API key.
+- **Costs**: Whisper + GPT-4o-mini ≈ $0.0015 per command. Costs are charged to the account holder (the key).
+- **Limits**: Respect OpenAI rate limits; if exceeded, the app can show a clear error (partially handled in code).
+- **Best practices**:
+  - Never expose the key (no "shared" key for all app users).
+  - Document how to create a key and where to set it in Ghosty.
 
-### 3.2 Autres comptes
+### 3.2 Other accounts
 
-- Aucun autre compte obligatoire pour l’app (pas de compte « Ghosty » central). Tout est local + OpenAI.
+- No other account required for the app (no central "Ghosty" account). Everything is local + OpenAI.
 
 ---
 
-## 4. Checklist avant mise en ligne
+## 4. Pre-launch checklist
 
-À valider avant de considérer la première version « production ».
+To validate before considering the first "production" version.
 
-### Code et config
-- [ ] `ENABLE_RIGHT_CLICK_SERVICES` et toute feature « en suspens » laissées à `false` (ou documentées).
-- [ ] Aucun secret (clé API, token) dans le repo ni dans les artefacts de build.
-- [ ] Logs de debug retirés ou désactivés en build release (pas de logs sensibles).
-- [ ] `.env` et fichiers de clés dans `.gitignore`.
+### Code and config
+- [ ] `ENABLE_RIGHT_CLICK_SERVICES` and any "pending" features left at `false` (or documented).
+- [ ] No secrets (API key, token) in the repo or build artifacts.
+- [ ] Debug logs removed or disabled in release build (no sensitive logs).
+- [ ] `.env` and key files in `.gitignore`.
 
 ### Build
-- [ ] `npm run tauri build` réussit.
-- [ ] L’app lance correctement depuis le `.app` (pas seulement en `tauri:dev`).
-- [ ] Raccourci global et micro testés sur une machine « propre ».
+- [ ] `npm run tauri build` succeeds.
+- [ ] App launches correctly from the `.app` (not only in `tauri:dev`).
+- [ ] Global shortcut and microphone tested on a "clean" machine.
 
-### Utilisateur
-- [ ] Un « Quick Start » ou équivalent à jour (ex. `docs/QUICKSTART.md`) : install, clé API, premier usage.
-- [ ] Une phrase sur les données envoyées à OpenAI (transcription + texte) et lien vers la politique OpenAI si besoin.
-- [ ] Si vous distribuez hors Mac App Store : une note sur l’ouverture d’une app non notarisée (clic droit → Ouvrir) si vous ne notarisez pas encore.
+### User
+- [ ] Up-to-date Quick Start or equivalent (e.g. `docs/QUICKSTART.md`): install, API key, first use.
+- [ ] One sentence on data sent to OpenAI (transcription + text) and link to OpenAI policy if needed.
+- [ ] If distributing outside the Mac App Store: a note on opening an unsigned app (right-click → Open) if you are not notarizing yet.
 
-### Légal / Produit (recommandations)
-- [ ] Licence du projet claire (ex. MIT).
-- [ ] Si vous collectez des données personnelles ailleurs qu’OpenAI : politique de confidentialité + consentement.
-- [ ] Version et numéro de build visibles (ex. dans À propos ou tauri.conf.json).
-
----
-
-## 5. Après le lancement
-
-- **Monitoring** : au début, pas d’infra dédiée ; compter sur les retours utilisateurs et les erreurs affichées dans l’app. Si vous ajoutez un crash reporter ou des métriques anonymes plus tard, le faire avec consentement et transparence.
-- **Mises à jour** : prévoir un canal (site, GitHub Releases, ou Tauri updater) pour livrer les correctifs.
-- **Sécurité** : en cas de fuite de clé signalée, rappeler à l’utilisateur de révoquer la clé dans OpenAI et d’en créer une nouvelle.
+### Legal / product (recommendations)
+- [ ] Clear project license (e.g. MIT).
+- [ ] If you collect personal data elsewhere than OpenAI: privacy policy + consent.
+- [ ] Version and build number visible (e.g. in About or tauri.conf.json).
 
 ---
 
-## Résumé
+## 5. After launch
 
-| Thème | Action principale |
-|-------|-------------------|
-| Clés API | Jamais en dur ; stockage local sécurisé ; chaque utilisateur sa clé. |
-| Données | Clarifier ce qui part vers OpenAI ; pas d’envoi inutile. |
-| Permissions | Micro + raccourcis + presse-papier ; documenter pourquoi. |
-| Build | `npm run tauri build` ; signature/notarisation macOS si diffusion large. |
-| OpenAI | Compte + clé par utilisateur ; coûts et limites à leur charge. |
-| Avant release | Checklist code/config, build, doc utilisateur, licence. |
+- **Monitoring**: Initially, no dedicated infra; rely on user feedback and errors shown in the app. If you add a crash reporter or anonymous metrics later, do it with consent and transparency.
+- **Updates**: Plan a channel (site, GitHub Releases, or Tauri updater) to ship fixes.
+- **Security**: If a key leak is reported, remind the user to revoke the key in OpenAI and create a new one.
 
-Ce guide peut être complété au fil du temps (ex. notarisation pas à pas, configuration de l’updater, politique de confidentialité type).
+---
+
+## Summary
+
+| Topic | Main action |
+|-------|-------------|
+| API keys | Never hardcoded; secure local storage; each user their own key. |
+| Data | Clarify what is sent to OpenAI; no unnecessary sending. |
+| Permissions | Microphone + shortcuts + clipboard; document why. |
+| Build | `npm run tauri build`; macOS signature/notarization for wide distribution. |
+| OpenAI | Account + key per user; costs and limits on them. |
+| Before release | Code/config, build, user doc, license checklist. |
+
+This guide can be extended over time (e.g. step-by-step notarization, updater config, sample privacy policy).

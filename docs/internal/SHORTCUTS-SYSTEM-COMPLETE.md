@@ -3,20 +3,20 @@
 **Date** : 2026-02-02  
 **Status** : Production-ready
 
-**État actuel (aligné code)** : Les raccourcis par défaut dans `shortcuts.rs` sont notamment PushToTalk (Ctrl+Space), ToggleRecording (Ctrl+Shift+Space), Command Mode (Ctrl+Shift+E), Paste last transcript, etc. Les actions incluent PushToTalk, ToggleRecording, ActivateMode, OpenDashboard, ToggleFloatingBar, PasteLastOutput. La section Paramètres qui regroupe transcription et LLM s’appelle **Models** (une seule section).
+**Current state (code-aligned)**: Default shortcuts in `shortcuts.rs` include PushToTalk (Ctrl+Space), ToggleRecording (Ctrl+Shift+Space), Command Mode (Ctrl+Shift+E), Paste last transcript, etc. Actions include PushToTalk, ToggleRecording, ActivateMode, OpenDashboard, ToggleFloatingBar, PasteLastOutput. The Settings section that groups transcription and LLM is called **Models** (single section).
 
 ---
 
-## Résumé
+## Summary
 
-Le système de raccourcis clavier personnalisables est maintenant implémenté, et l'UI des settings a été enrichie avec des descriptions claires pour chaque section.
+The customizable keyboard shortcut system is now implemented, and the settings UI has been updated with clear descriptions for each section.
 
 **Avant** : Pas de raccourcis configurables, settings avec peu d'informations  
 **Après** : Raccourcis personnalisables (y compris vers des modes spécifiques), UI settings informatif et clair
 
 ---
 
-## 🎯 Fonctionnalités implémentées
+## 🎯 Implemented features
 
 ### **Backend (`src-tauri/src/shortcuts.rs`)**
 
@@ -53,11 +53,11 @@ pub enum ShortcutAction {
 
 ---
 
-### **Frontend Settings - UI Améliorée**
+### **Frontend Settings - Improved UI**
 
-✅ **Toutes les sections ont maintenant** :
+✅ **All sections now have**:
 - Titre principal (text-2xl, bold)
-- Description claire du contenu de la section
+- Clear description of the section content
 - Layout cohérent et professionnel
 
 **Sections** (ids dans le code) : General, Shortcuts, Recording, **Models** (transcription + LLM), Behavior, Appearance, Advanced, Usage, **API Keys**, Account.
@@ -100,14 +100,14 @@ pub enum ShortcutAction {
 ### **Créer un raccourci vers un mode spécifique**
 
 1. Aller dans **Settings → Shortcuts**
-2. Cliquer sur **"+ New Shortcut"**
-3. Remplir :
+2. Click **"+ New Shortcut"**
+3. Fill in:
    - **Name** : "Quick Shape Mode"
    - **Action** : Sélectionner "Activate Mode"
    - **Select Mode** : Choisir "Shape"
    - **Description** : "Quickly activate Shape mode for structure and polish"
    - **Keyboard Combination** : `Cmd` + `Shift` + `M`
-4. Cliquer **"Save Shortcut"**
+4. Click **"Save Shortcut"**
 
 ### **Créer un raccourci pour démarrer l'enregistrement**
 
@@ -117,27 +117,27 @@ pub enum ShortcutAction {
 4. **Keys** : `Cmd` + `Shift` + `R`
 5. **Save**
 
-### **Éditer un raccourci**
+### **Edit a shortcut**
 
-1. Dans la liste, cliquer sur l'icône **Edit** (✏️)
-2. Modifier les champs
+1. In the list, click the **Edit** icon (✏️)
+2. Change the fields
 3. **Save Shortcut**
 
-### **Désactiver temporairement un raccourci**
+### **Temporarily disable a shortcut**
 
-1. Cliquer sur l'icône **œil** (👁️)
-2. Le raccourci reste dans la liste mais est inactif
-3. Badge "Active" disparaît
-4. Re-cliquer pour réactiver
+1. Click the **eye** icon (👁️)
+2. The shortcut stays in the list but is inactive
+3. "Active" badge disappears
+4. Click again to re-enable
 
-### **Supprimer un raccourci**
+### **Delete a shortcut**
 
-1. Cliquer sur l'icône **Delete** (🗑️)
-2. Le raccourci est supprimé définitivement
+1. Click the **Delete** icon (🗑️)
+2. The shortcut is permanently removed
 
 ---
 
-## 📂 Fichiers modifiés
+## 📂 Modified files
 
 ### Backend
 - ✅ `src-tauri/src/shortcuts.rs` : nouveau module
@@ -145,15 +145,15 @@ pub enum ShortcutAction {
 
 ### Frontend
 - ✅ `src/components/Dashboard.tsx` :
-  - Nouvelle section "Shortcuts"
-  - Toutes les sections enrichies avec titres et descriptions
+  - New "Shortcuts" section
+  - All sections updated with titles and descriptions
   - État shortcuts, formulaire création/édition, liste
 
 ---
 
 ## 🚀 Test
 
-1. Lancer l'app : `npm run tauri dev`
+1. Launch the app: `npm run tauri dev`
 2. Aller dans **Settings → Shortcuts**
 3. Tester :
    - Créer un raccourci vers le mode "Light edit" : `Cmd+Shift+L`
@@ -162,31 +162,31 @@ pub enum ShortcutAction {
    - Désactiver/réactiver
    - Supprimer un raccourci
 
-4. Parcourir toutes les sections settings :
-   - Vérifier que chaque section a un titre clair
-   - Vérifier que chaque section a une description
-   - Vérifier la cohérence visuelle
+4. Go through all settings sections:
+   - Verify each section has a clear title
+   - Verify each section has a description
+   - Verify visual consistency
 
 ---
 
-## 📝 Prochaines améliorations possibles
+## 📝 Possible future improvements
 
 1. **Enregistrement système des raccourcis** : Intégrer avec `tauri-plugin-global-shortcut` pour que les raccourcis fonctionnent réellement
 2. **Détection de conflits** : Avertir si un raccourci existe déjà
 3. **Import/Export** : Partager des presets de raccourcis
-4. **Validation** : Vérifier que les touches sont valides (Cmd, Shift, Alt, etc.)
+4. **Validation**: Verify that keys are valid (Cmd, Shift, Alt, etc.)
 5. **Touche de test** : Bouton pour capturer la combinaison clavier directement
 6. **Catégories** : Organiser les raccourcis par type (Modes, Recording, Navigation, etc.)
 7. **Raccourcis globaux vs locaux** : Distinguer les raccourcis qui fonctionnent uniquement dans l'app vs partout
 
 ---
 
-## ✨ Différence avec avant
+## ✨ Before vs after
 
 | Avant | Après |
 |-------|-------|
 | Pas de raccourcis configurables | Raccourcis personnalisables illimités |
-| Settings avec peu de contexte | Chaque section a titre + description |
+| Settings with little context | Each section has title + description |
 | Pas de raccourcis vers modes | Raccourcis directs vers n'importe quel mode |
 | UI uniforme sans hiérarchie | Headers clairs, descriptions informatives |
 | Pas de gestion des raccourcis | CRUD complet + toggle enable/disable |

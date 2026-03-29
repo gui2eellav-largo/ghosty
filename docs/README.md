@@ -1,12 +1,13 @@
-# Documentation Ghosty
+# Ghosty Documentation
 
-Documentation destinée aux utilisateurs et aux personnes qui découvrent l’application.
+Documentation for users and anyone discovering the application.
 
 ## Guides
 
-- **[Guide de démarrage (Quick Start)](QUICKSTART.md)** — Installer, configurer la clé API, lancer l’app et utiliser la dictée + modes.
-- **[Préparation à la production](PRODUCTION-READINESS.md)** — Checklist et guide (sécurité, distribution, mise en ligne) pour lancer Ghosty en production.
+- **[Quick Start Guide](QUICKSTART.md)** — Install, configure API key, run the app, and use dictation + modes.
+- **[Production readiness](PRODUCTION-READINESS.md)** — Checklist and guide (security, distribution, launch) for running Ghosty in production.
+- **[Keyboard shortcuts](KEYBOARD-SHORTCUTS.md)** — Audit, user scenarios, and dev reference for global shortcuts.
 
-## Autre
+## Other
 
-- **Documentation interne** (méthodologie, fonctionnalités, théorie du prompting) : **[internal/](internal/)**.
+- **Internal documentation** (methodology, features, prompting theory): **[internal/](internal/)**.

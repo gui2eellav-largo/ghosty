@@ -158,7 +158,7 @@ Nouveau concept: "Vision 4D Audiences"
 
 **Keywords**: `Triangular validation (Tax ↔ Sem ↔ Onto). Pinpoint discrepancies.`
 
-**Application**: Vérifier cohérence entre taxonomie, sémantique et ontologie
+**Application**: Verify consistency between taxonomy, semantics and ontology
 
 **Résultat**:
 - Validation triangulaire des 3 couches
@@ -260,7 +260,7 @@ Nouveau concept "Media Mix Créatif" vs Index
 
 **Keywords**: `Bidirectional validation. Cross-reference integrity. Format compliance.`
 
-**Application**: Vérifier cohérence des liens, références, format
+**Application**: Verify consistency of links, references, format
 
 **Résultat**:
 - Validation bidirectionnelle des liens
@@ -274,7 +274,7 @@ Après création documents
 → Output:
   - Framework 3i → Itération: Lien créé ✓
   - Itération → Framework 3i: Lien réciproque ✗ (MANQUANT)
-  → Action: Ajouter lien réciproque
+  → Action: Add reciprocal link
 ```
 
 ---
@@ -328,7 +328,7 @@ Restructuration proposée
      Impact: -50% découvrabilité | Risque: Faible | Effort: 1h
   
   IMPORTANT (P1):
-  2. Ajouter liens Framework 3i ↔ Pattern Spotting
+  2. Add links Framework 3i ↔ Pattern Spotting
      Impact: +30% contexte | Risque: Nul | Effort: 15min
   
   COMPLEMENTARY (P2):

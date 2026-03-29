@@ -4,6 +4,7 @@ import * as React from "react"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { strings } from "@/lib/strings"
 import { Button } from "@/components/ui/button"
 import { LiveWaveform } from "@/components/ui/live-waveform"
 
@@ -74,6 +75,11 @@ export interface VoiceButtonProps
   waveformClassName?: string
 
   /**
+   * Color of the waveform bars (passed to LiveWaveform barColor)
+   */
+  waveformBarColor?: string
+
+  /**
    * Waveform update rate in ms (~16 for 60fps)
    * @default 30
    */
@@ -103,6 +109,7 @@ const VoiceButtonInner = React.forwardRef<HTMLButtonElement, VoiceButtonProps>(
       size = "default",
       className,
       waveformClassName,
+      waveformBarColor,
       waveformUpdateRate,
       feedbackDuration = 1500,
       disabled,
@@ -148,14 +155,14 @@ const VoiceButtonInner = React.forwardRef<HTMLButtonElement, VoiceButtonProps>(
 
     const ariaLabel =
       state === "recording"
-        ? "Recording…"
+        ? strings.voiceButton.recording
         : state === "processing"
-          ? "Processing…"
+          ? strings.voiceButton.processing
           : state === "success"
-            ? "Voice input ready"
+            ? strings.voiceButton.ready
             : state === "error"
-              ? "Voice input failed"
-              : "Start voice input"
+              ? strings.voiceButton.failed
+              : strings.voiceButton.start
 
     return (
       <Button
@@ -197,6 +204,7 @@ const VoiceButtonInner = React.forwardRef<HTMLButtonElement, VoiceButtonProps>(
               barWidth={1.2}
               barGap={1.2}
               barRadius={2}
+              barColor={waveformBarColor}
               fadeEdges={false}
               sensitivity={1.5}
               smoothingTimeConstant={0.85}

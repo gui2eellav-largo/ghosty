@@ -6,6 +6,7 @@ mod audio;
 mod clipboard;
 mod correction_detector;
 mod dictionary;
+mod edit_commands;
 mod errors;
 mod hotkey;
 mod http_client;
@@ -16,8 +17,10 @@ mod prompt_state;
 mod secrets;
 mod services_installer;
 mod shortcuts;
+mod snippets;
 mod transcribe;
 mod usage;
+mod voice_commands;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -54,6 +57,9 @@ pub struct CursorInsideSince(pub Mutex<Option<Instant>>);
 
 /// Dernière sortie (transcription + LLM) pour "Paste last output" dans le menu tray.
 pub struct LastOutputState(pub Mutex<Option<String>>);
+
+/// Flag to prevent floating window focus stealing during auto-paste.
+pub struct PasteInProgress(pub std::sync::atomic::AtomicBool);
 
 /// Mapping shortcut id -> config pour le handler des raccourcis globaux (chargé depuis shortcuts.json).
 pub struct ShortcutMappingState(pub Mutex<HashMap<u32, shortcuts::ShortcutConfig>>);
@@ -222,7 +228,14 @@ fn paste_last_output(app: tauri::AppHandle) -> Result<(), String> {
         return Ok(());
     };
     crate::clipboard::copy_to_clipboard(&text, &app)?;
-    crate::clipboard::auto_paste(&app)?;
+    // enigo must run on main thread (HIToolbox requirement)
+    let (tx, rx) = std::sync::mpsc::channel();
+    let _ = app.run_on_main_thread(move || {
+        let ok = crate::clipboard::send_paste_keystroke().is_ok();
+        let _ = tx.send(ok);
+    });
+    rx.recv_timeout(std::time::Duration::from_millis(1000))
+        .map_err(|e| format!("paste timeout: {}", e))?;
     Ok(())
 }
 
@@ -264,9 +277,8 @@ pub async fn run_transform_selection(app: tauri::AppHandle, mode_id: String) -> 
     };
     clipboard::copy_to_clipboard(&text_to_copy, &app)?;
     if prefs.behavior.auto_paste_after_transform {
-        let app_main = app.clone();
         let _ = app.run_on_main_thread(move || {
-            let _ = clipboard::auto_paste(&app_main);
+            let _ = clipboard::send_paste_keystroke();
         });
     }
     if let Some(state) = app.try_state::<LastOutputState>() {
@@ -392,7 +404,12 @@ const CURSOR_INSIDE_FOCUS_DELAY_MS: u64 = 300;
 fn focus_floating_if_cursor_inside(
     app: tauri::AppHandle,
     state: tauri::State<CursorInsideSince>,
+    paste_state: tauri::State<PasteInProgress>,
 ) -> Result<(), String> {
+    // Don't steal focus while auto-paste is in progress
+    if paste_state.0.load(std::sync::atomic::Ordering::Relaxed) {
+        return Ok(());
+    }
     let window = app
         .get_webview_window("floating")
         .ok_or_else(|| "floating window not found".to_string())?;
@@ -539,8 +556,9 @@ fn delete_openai_key() -> Result<(), String> {
 }
 
 #[tauri::command]
-async fn test_openai_key(key: String) -> Result<(), errors::ApiKeyError> {
-    secrets::test_api_key(&key)
+async fn test_openai_key(key: String, provider: Option<String>) -> Result<(), errors::ApiKeyError> {
+    let prov = provider.as_deref().unwrap_or("openai");
+    secrets::test_api_key(&key, prov)
         .await
         .map_err(|s| errors::parse_api_key_error(&s))
 }
@@ -663,6 +681,36 @@ fn reorder_modes(
     let result = modes::reorder_modes(&app, mode_ids)?;
     let _ = app.emit("modes-updated", ());
     Ok(result)
+}
+
+// ============================================================================
+// SNIPPETS
+// ============================================================================
+
+#[tauri::command]
+fn get_all_snippets(app: tauri::AppHandle) -> Result<Vec<snippets::Snippet>, String> {
+    snippets::get_all_snippets(&app)
+}
+
+#[tauri::command]
+fn save_snippet(
+    app: tauri::AppHandle,
+    snippet: snippets::Snippet,
+) -> Result<Vec<snippets::Snippet>, String> {
+    snippets::save_snippet(&app, snippet)
+}
+
+#[tauri::command]
+fn delete_snippet(app: tauri::AppHandle, snippet_id: String) -> Result<Vec<snippets::Snippet>, String> {
+    snippets::delete_snippet(&app, snippet_id)
+}
+
+#[tauri::command]
+fn reorder_snippets(
+    app: tauri::AppHandle,
+    snippet_ids: Vec<String>,
+) -> Result<Vec<snippets::Snippet>, String> {
+    snippets::reorder_snippets(&app, snippet_ids)
 }
 
 // ============================================================================
@@ -986,6 +1034,12 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+            // Pre-warm microphone permission and audio worker for instant recording start
+            audio::warmup_mic_permission();
+            if let Some(state) = app.try_state::<audio::RecorderState>() {
+                state.warmup(app.handle().clone());
+            }
+
             #[cfg(desktop)]
             {
                 use tauri_plugin_autostart::ManagerExt;
@@ -1051,7 +1105,7 @@ pub fn run() {
                     let mic_device_items: Vec<CheckMenuItem<tauri::Wry>> = devices
                         .iter()
                         .enumerate()
-                        .map(|(i, d)| {
+                        .filter_map(|(i, d)| {
                             let checked = current_mic.map(|id| d.id.as_str() == id).unwrap_or(false);
                             CheckMenuItem::with_id(
                                 app,
@@ -1061,7 +1115,7 @@ pub fn run() {
                                 checked,
                                 None::<&str>,
                             )
-                            .unwrap()
+                            .ok()
                         })
                         .collect();
                     let mut mic_items: Vec<CheckMenuItem<tauri::Wry>> = vec![mic_default_i];
@@ -1085,7 +1139,7 @@ pub fn run() {
                     ];
                     let lang_items: Vec<CheckMenuItem<tauri::Wry>> = TRAY_LANGS
                         .iter()
-                        .map(|(id, label)| {
+                        .filter_map(|(id, label)| {
                             let checked = match *id {
                                 "tray_lang_default" => current_lang.is_none(),
                                 "tray_lang_fr" => current_lang == Some("fr"),
@@ -1094,7 +1148,7 @@ pub fn run() {
                                 "tray_lang_de" => current_lang == Some("de"),
                                 _ => false,
                             };
-                            CheckMenuItem::with_id(app, id, label, true, checked, None::<&str>).unwrap()
+                            CheckMenuItem::with_id(app, id, label, true, checked, None::<&str>).ok()
                         })
                         .collect();
                     let lang_refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> =
@@ -1141,7 +1195,7 @@ pub fn run() {
                     )?;
 
                     let _tray = TrayIconBuilder::new()
-                        .icon(app.default_window_icon().unwrap().clone())
+                        .icon(app.default_window_icon().expect("app must have a default window icon").clone())
                         .menu(&menu)
                         .show_menu_on_left_click(true)
                         .on_menu_event(move |app, event| {
@@ -1161,7 +1215,12 @@ pub fn run() {
                                         .flatten();
                                     if let Some(t) = text {
                                         let _ = crate::clipboard::copy_to_clipboard(&t, app);
-                                        let _ = crate::clipboard::auto_paste(app);
+                                        // enigo must run on main thread (HIToolbox)
+                                        let app_paste = app.clone();
+                                        let _ = app.run_on_main_thread(move || {
+                                            let _ = crate::clipboard::send_paste_keystroke();
+                                            drop(app_paste);
+                                        });
                                     }
                                 }
                                 "tray_check_updates" => {
@@ -1278,6 +1337,7 @@ pub fn run() {
         .manage(PipelineCancel(Mutex::new(None)))
         .manage(CursorInsideSince(Mutex::new(None)))
         .manage(LastOutputState(Mutex::new(None)))
+        .manage(PasteInProgress(std::sync::atomic::AtomicBool::new(false)))
         .invoke_handler(tauri::generate_handler![
             get_last_output,
             paste_last_output,
@@ -1330,6 +1390,10 @@ pub fn run() {
             import_dictionary_entries,
             export_dictionary_entries,
             analyze_clipboard_correction,
+            get_all_snippets,
+            save_snippet,
+            delete_snippet,
+            reorder_snippets,
             check_update,
             install_update,
             get_first_run_done,

@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { strings } from "@/lib/strings";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -34,17 +35,17 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           role="alert"
         >
           <p className="text-black dark:text-white font-medium mb-2">
-            Une erreur est survenue
+            {strings.errors.somethingWentWrong}
           </p>
           <p className="text-sm text-muted-foreground mb-4 max-w-md">
-            L&apos;application a rencontré un problème. Rechargez la page pour continuer.
+            {strings.errors.appEncounteredProblem}
           </p>
           <button
             type="button"
             onClick={this.handleReload}
             className="px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-lg font-semibold text-sm hover:opacity-80 transition-opacity"
           >
-            Recharger
+            {strings.errors.reload}
           </button>
         </div>
       );

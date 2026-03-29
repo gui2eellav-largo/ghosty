@@ -1,22 +1,22 @@
-# Documentation interne
+# Internal documentation
 
-Référence minimale pour la maintenance et l’évolution de l’app : méthodologie, fonctionnement des features, théorie du prompting.
+Minimal reference for maintaining and evolving the app: methodology, feature behavior, prompting theory.
 
-## Produit et fonctionnalités
+## Product and features
 
-- **[GHOSTY-MODES-METHODOLOGY.md](GHOSTY-MODES-METHODOLOGY.md)** — Conception des modes (magic keywords, niveaux d’intervention).
-- **[DICTIONARY-SYSTEM.md](DICTIONARY-SYSTEM.md)** — Système de dictionnaire (variantes, prononciation, Whisper).
-- **[DICTIONARY-QUICKSTART.md](DICTIONARY-QUICKSTART.md)** — Prise en main rapide du dictionnaire.
-- **[SERVICES-CLIC-DROIT-MACOS.md](SERVICES-CLIC-DROIT-MACOS.md)** — Services macOS (clic droit, workflows). Voir **[AUDIT-SERVICES-CLIC-DROIT.md](AUDIT-SERVICES-CLIC-DROIT.md)** pour l’audit et les correctifs (erreur « pas configuré correctement »).
-- **[SHORTCUTS-SYSTEM-COMPLETE.md](SHORTCUTS-SYSTEM-COMPLETE.md)** — Raccourcis globaux (config, persistance).
+- **[GHOSTY-MODES-METHODOLOGY.md](GHOSTY-MODES-METHODOLOGY.md)** — Mode design (magic keywords, intervention levels).
+- **[DICTIONARY-SYSTEM.md](DICTIONARY-SYSTEM.md)** — Dictionary system (variants, pronunciation, Whisper).
+- **[DICTIONARY-QUICKSTART.md](DICTIONARY-QUICKSTART.md)** — Dictionary quick start.
+- **[SERVICES-CLIC-DROIT-MACOS.md](SERVICES-CLIC-DROIT-MACOS.md)** — macOS Services (right-click, workflows). See **[AUDIT-SERVICES-CLIC-DROIT.md](AUDIT-SERVICES-CLIC-DROIT.md)** for audit and fixes ("not configured correctly" error).
+- **[SHORTCUTS-SYSTEM-COMPLETE.md](SHORTCUTS-SYSTEM-COMPLETE.md)** — Global shortcuts (config, persistence).
 
-## Prompting et théorie
+## Prompting and theory
 
-- **[ghosty-prompting-rules.md](ghosty-prompting-rules.md)** — Règles de prompting Ghosty.
-- **[prompting-dense-library.md](prompting-dense-library.md)** — Librairie de requêtes denses (magic keywords).
-- **[magic-keywords-prompt-engineering.md](magic-keywords-prompt-engineering.md)** — Fondamentaux magic keywords.
-- **[prompt-enrichment-jargon-methodology.md](prompt-enrichment-jargon-methodology.md)** — Méthodologie d’enrichissement des prompts.
+- **[ghosty-prompting-rules.md](ghosty-prompting-rules.md)** — Ghosty prompting rules.
+- **[prompting-dense-library.md](prompting-dense-library.md)** — Dense request library (magic keywords).
+- **[magic-keywords-prompt-engineering.md](magic-keywords-prompt-engineering.md)** — Magic keywords fundamentals.
+- **[prompt-enrichment-jargon-methodology.md](prompt-enrichment-jargon-methodology.md)** — Prompt enrichment methodology.
 
-## Stratégie
+## Strategy
 
-- **[STRATEGIE-IMPLEMENTATION-FONCTIONNALITES.md](STRATEGIE-IMPLEMENTATION-FONCTIONNALITES.md)** — Stratégie d’implémentation des fonctionnalités.
+- **[STRATEGIE-IMPLEMENTATION-FONCTIONNALITES.md](STRATEGIE-IMPLEMENTATION-FONCTIONNALITES.md)** — Feature implementation strategy.

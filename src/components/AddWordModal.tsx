@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Check, AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { strings } from "@/lib/strings";
 import { ToggleSwitch } from "./SettingsModal";
 
 export type AddWordPayload = {
@@ -32,12 +33,12 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
 
     if (correctMisspelling) {
       if (!misspelling.trim() || !correctSpelling.trim()) {
-        setError("Misspelling and correct spelling are required");
+        setError(strings.addWordModal.errors.misspellingRequired);
         return;
       }
     } else {
       if (!word.trim()) {
-        setError("Word cannot be empty");
+        setError(strings.addWordModal.errors.wordEmpty);
         return;
       }
     }
@@ -77,12 +78,12 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
       <div className="bg-white dark:bg-[#0c0c0c] border border-black/[0.06] dark:border-white/[0.06] rounded-lg shadow-md w-full max-w-md mx-4 animate-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.06]">
           <h2 className="text-xl font-bold text-black dark:text-white">
-            Add to vocabulary
+            {strings.addWordModal.title}
           </h2>
           <button
             onClick={resetAndClose}
             className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-black/5 dark:hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 transition-colors text-muted-foreground hover:text-foreground"
-            aria-label="Close"
+            aria-label={strings.addWordModal.close}
           >
             <X size={18} />
           </button>
@@ -98,8 +99,8 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
 
           <div className="flex items-center justify-between gap-2">
             <span className="flex items-center gap-1.5 text-sm font-medium text-black dark:text-white">
-              Correct a misspelling
-              <span className="text-muted-foreground" title="When on, define a form that is often misrecognized and the correct form to use.">
+              {strings.addWordModal.correctMisspelling}
+              <span className="text-muted-foreground" title={strings.addWordModal.correctMisspellingTooltip}>
                 <Info size={14} />
               </span>
             </span>
@@ -113,14 +114,14 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
             <div className="space-y-3">
               <div>
                 <label htmlFor="addword-misspelling" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Misspelling
+                  {strings.addWordModal.misspelling}
                 </label>
                 <input
                   id="addword-misspelling"
                   type="text"
                   value={misspelling}
                   onChange={(e) => setMisspelling(e.target.value)}
-                  placeholder="e.g. Whispr"
+                  placeholder={strings.addWordModal.misspellingPlaceholder}
                   className="w-full px-4 py-2.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.08] dark:border-white/[0.08] focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-sm"
                 />
               </div>
@@ -129,14 +130,14 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
               </div>
               <div>
                 <label htmlFor="addword-correct" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
-                  Correct spelling
+                  {strings.addWordModal.correctSpelling}
                 </label>
                 <input
                   id="addword-correct"
                   type="text"
                   value={correctSpelling}
                   onChange={(e) => setCorrectSpelling(e.target.value)}
-                  placeholder="e.g. Wispr"
+                  placeholder={strings.addWordModal.correctSpellingPlaceholder}
                   className="w-full px-4 py-2.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.08] dark:border-white/[0.08] focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-sm"
                 />
               </div>
@@ -144,18 +145,18 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
           ) : (
             <div>
               <label htmlFor="addword-word" className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">
-                Word *
+                {strings.addWordModal.word}
               </label>
               <input
                 id="addword-word"
                 type="text"
                 value={word}
                 onChange={(e) => setWord(e.target.value)}
-                placeholder="Add a new word"
+                placeholder={strings.addWordModal.wordPlaceholder}
                 className="w-full px-4 py-2.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.08] dark:border-white/[0.08] focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-sm font-semibold"
               />
               <p className="text-[11px] text-muted-foreground/60 mt-1.5">
-                The word to add to the transcription dictionary
+                {strings.addWordModal.wordHint}
               </p>
             </div>
           )}
@@ -172,11 +173,11 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
               )}
             >
               {isSubmitting ? (
-                "Adding..."
+                strings.addWordModal.adding
               ) : (
                 <>
                   <Check size={16} />
-                  Add word
+                  {strings.addWordModal.addWord}
                 </>
               )}
             </button>
@@ -186,7 +187,7 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
               disabled={isSubmitting}
               className="px-4 py-2.5 rounded-lg font-bold text-sm bg-black/5 dark:bg-white/5 text-black dark:text-white hover:bg-black/10 dark:hover:bg-white/10 transition-all"
             >
-              Cancel
+              {strings.addWordModal.cancel}
             </button>
           </div>
         </form>

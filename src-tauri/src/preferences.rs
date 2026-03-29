@@ -91,14 +91,22 @@ pub struct TranscriptionPrefs {
     pub timeout_secs: u64,
     #[serde(default)]
     pub language: Option<String>,
+    /// Transcription provider: "openai" or "groq"
+    #[serde(default = "default_transcription_provider")]
+    pub provider: String,
+}
+
+fn default_transcription_provider() -> String {
+    "openai".into()
 }
 
 impl Default for TranscriptionPrefs {
     fn default() -> Self {
         Self {
             model: "whisper-1".into(),
-            timeout_secs: 30,
+            timeout_secs: 20,
             language: Some("fr".into()),
+            provider: "openai".into(),
         }
     }
 }
@@ -110,6 +118,13 @@ pub struct LlmPrefs {
     pub temperature: f32,
     pub max_tokens: u32,
     pub timeout_secs: u64,
+    /// LLM provider: "openai" or "groq"
+    #[serde(default = "default_llm_provider")]
+    pub provider: String,
+}
+
+fn default_llm_provider() -> String {
+    "openai".into()
 }
 
 impl Default for LlmPrefs {
@@ -119,6 +134,7 @@ impl Default for LlmPrefs {
             temperature: 0.3,
             max_tokens: 1024,
             timeout_secs: 45,
+            provider: "openai".into(),
         }
     }
 }
@@ -260,4 +276,289 @@ pub fn max_recording_samples(app: &tauri::AppHandle) -> usize {
     let prefs = get_preferences(app).unwrap_or_default();
     let mins = prefs.recording.max_duration_minutes.clamp(1, 10);
     (16000 * 60 * mins) as usize
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Default preferences ─────────────────────────────────────────
+
+    #[test]
+    fn test_default_preferences_valid() {
+        let prefs = Preferences::default();
+        assert_eq!(prefs.recording.max_duration_minutes, 2);
+        assert_eq!(prefs.transcription.model, "whisper-1");
+        assert_eq!(prefs.transcription.timeout_secs, 20);
+        assert_eq!(prefs.llm.model, "gpt-4o-mini");
+        assert!((prefs.llm.temperature - 0.3).abs() < f32::EPSILON);
+        assert_eq!(prefs.llm.max_tokens, 1024);
+    }
+
+    #[test]
+    fn test_default_general_prefs() {
+        let prefs = GeneralPrefs::default();
+        assert!(!prefs.launch_at_login);
+        assert!(!prefs.auto_update);
+        assert!(prefs.display_name.is_none());
+        assert!(prefs.avatar_path.is_none());
+        assert!(!prefs.first_run_done);
+    }
+
+    #[test]
+    fn test_default_shortcut_prefs() {
+        let prefs = ShortcutPrefs::default();
+        assert_eq!(prefs.modifiers, vec!["Control", "Shift"]);
+        assert_eq!(prefs.key, "Space");
+    }
+
+    #[test]
+    fn test_default_behavior_prefs() {
+        let prefs = BehaviorPrefs::default();
+        assert!(prefs.auto_copy);
+        assert!(prefs.sound_on_complete);
+        assert!(!prefs.system_notification);
+        assert!(prefs.auto_paste_after_transform);
+        assert!(!prefs.paste_input_and_output);
+    }
+
+    #[test]
+    fn test_default_appearance_prefs() {
+        let prefs = AppearancePrefs::default();
+        assert_eq!(prefs.theme, "system");
+        assert_eq!(prefs.bar_position, "top");
+        assert_eq!(prefs.font_size, "normal");
+        assert!(prefs.show_lock_in_widget);
+    }
+
+    #[test]
+    fn test_default_advanced_prefs() {
+        let prefs = AdvancedPrefs::default();
+        assert!(prefs.transcription_base_url.is_none());
+        assert!(prefs.llm_base_url.is_none());
+    }
+
+    #[test]
+    fn test_default_transcription_language() {
+        let prefs = TranscriptionPrefs::default();
+        assert_eq!(prefs.language, Some("fr".into()));
+    }
+
+    // ── Serialization / deserialization roundtrip ────────────────────
+
+    #[test]
+    fn test_preferences_serialization_roundtrip() {
+        let prefs = Preferences::default();
+        let json = serde_json::to_string(&prefs).unwrap();
+        let deserialized: Preferences = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.llm.model, prefs.llm.model);
+        assert_eq!(deserialized.recording.max_duration_minutes, prefs.recording.max_duration_minutes);
+        assert_eq!(deserialized.appearance.theme, prefs.appearance.theme);
+    }
+
+    #[test]
+    fn test_preferences_camel_case_keys() {
+        let prefs = Preferences::default();
+        let json = serde_json::to_value(&prefs).unwrap();
+        // Verify camelCase field names
+        assert!(json.get("general").is_some());
+        let general = json.get("general").unwrap();
+        assert!(general.get("launchAtLogin").is_some());
+        assert!(general.get("autoUpdate").is_some());
+    }
+
+    #[test]
+    fn test_deserialize_with_missing_fields_uses_defaults() {
+        // Provide all required fields for GeneralPrefs, but omit other top-level sections
+        let json = r#"{"general": {"launchAtLogin": true, "autoUpdate": false, "firstRunDone": false}}"#;
+        let prefs: Preferences = serde_json::from_str(json).unwrap();
+        assert!(prefs.general.launch_at_login);
+        // Other sections should be default
+        assert_eq!(prefs.llm.model, "gpt-4o-mini");
+        assert_eq!(prefs.recording.max_duration_minutes, 2);
+    }
+
+    #[test]
+    fn test_deserialize_empty_json_uses_all_defaults() {
+        let prefs: Preferences = serde_json::from_str("{}").unwrap();
+        assert_eq!(prefs.llm.model, "gpt-4o-mini");
+        assert!(!prefs.general.first_run_done);
+    }
+
+    // ── Partial merge logic ─────────────────────────────────────────
+
+    #[test]
+    fn test_merge_function_updates_nested_field() {
+        fn merge(a: &mut serde_json::Value, b: &serde_json::Value) {
+            if let (Some(a_obj), Some(b_obj)) = (a.as_object_mut(), b.as_object()) {
+                for (k, v) in b_obj {
+                    if v.is_object() {
+                        if let Some(a_val) = a_obj.get_mut(k) {
+                            if a_val.as_object().is_some() {
+                                merge(a_val, v);
+                            } else {
+                                a_obj.insert(k.clone(), v.clone());
+                            }
+                        } else {
+                            a_obj.insert(k.clone(), v.clone());
+                        }
+                    } else {
+                        a_obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+
+        let prefs = Preferences::default();
+        let mut current = serde_json::to_value(&prefs).unwrap();
+        let partial: serde_json::Value = serde_json::json!({
+            "llm": { "temperature": 0.7 }
+        });
+        merge(&mut current, &partial);
+        let merged: Preferences = serde_json::from_value(current).unwrap();
+        // temperature should be updated
+        assert!((merged.llm.temperature - 0.7).abs() < f32::EPSILON);
+        // model should remain default
+        assert_eq!(merged.llm.model, "gpt-4o-mini");
+    }
+
+    #[test]
+    fn test_merge_preserves_unrelated_sections() {
+        fn merge(a: &mut serde_json::Value, b: &serde_json::Value) {
+            if let (Some(a_obj), Some(b_obj)) = (a.as_object_mut(), b.as_object()) {
+                for (k, v) in b_obj {
+                    if v.is_object() {
+                        if let Some(a_val) = a_obj.get_mut(k) {
+                            if a_val.as_object().is_some() {
+                                merge(a_val, v);
+                            } else {
+                                a_obj.insert(k.clone(), v.clone());
+                            }
+                        } else {
+                            a_obj.insert(k.clone(), v.clone());
+                        }
+                    } else {
+                        a_obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+
+        let prefs = Preferences::default();
+        let mut current = serde_json::to_value(&prefs).unwrap();
+        let partial: serde_json::Value = serde_json::json!({
+            "general": { "launchAtLogin": true }
+        });
+        merge(&mut current, &partial);
+        let merged: Preferences = serde_json::from_value(current).unwrap();
+        assert!(merged.general.launch_at_login);
+        // Behavior should be unchanged
+        assert!(merged.behavior.auto_copy);
+        assert!(merged.behavior.sound_on_complete);
+    }
+
+    #[test]
+    fn test_merge_with_empty_partial_changes_nothing() {
+        fn merge(a: &mut serde_json::Value, b: &serde_json::Value) {
+            if let (Some(a_obj), Some(b_obj)) = (a.as_object_mut(), b.as_object()) {
+                for (k, v) in b_obj {
+                    if v.is_object() {
+                        if let Some(a_val) = a_obj.get_mut(k) {
+                            if a_val.as_object().is_some() {
+                                merge(a_val, v);
+                            } else {
+                                a_obj.insert(k.clone(), v.clone());
+                            }
+                        } else {
+                            a_obj.insert(k.clone(), v.clone());
+                        }
+                    } else {
+                        a_obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+
+        let prefs = Preferences::default();
+        let original_json = serde_json::to_string(&prefs).unwrap();
+        let mut current = serde_json::to_value(&prefs).unwrap();
+        let partial: serde_json::Value = serde_json::json!({});
+        merge(&mut current, &partial);
+        let merged: Preferences = serde_json::from_value(current).unwrap();
+        let merged_json = serde_json::to_string(&merged).unwrap();
+        assert_eq!(original_json, merged_json);
+    }
+
+    #[test]
+    fn test_merge_with_null_value() {
+        fn merge(a: &mut serde_json::Value, b: &serde_json::Value) {
+            if let (Some(a_obj), Some(b_obj)) = (a.as_object_mut(), b.as_object()) {
+                for (k, v) in b_obj {
+                    if v.is_object() {
+                        if let Some(a_val) = a_obj.get_mut(k) {
+                            if a_val.as_object().is_some() {
+                                merge(a_val, v);
+                            } else {
+                                a_obj.insert(k.clone(), v.clone());
+                            }
+                        } else {
+                            a_obj.insert(k.clone(), v.clone());
+                        }
+                    } else {
+                        a_obj.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+
+        let prefs = Preferences::default();
+        let mut current = serde_json::to_value(&prefs).unwrap();
+        let partial: serde_json::Value = serde_json::json!({
+            "general": { "displayName": null }
+        });
+        merge(&mut current, &partial);
+        let merged: Preferences = serde_json::from_value(current).unwrap();
+        assert!(merged.general.display_name.is_none());
+    }
+
+    // ── File-based load/save ────────────────────────────────────────
+
+    #[test]
+    fn test_load_from_file_missing_returns_defaults() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("nonexistent.json");
+        let prefs = load_from_file(&path);
+        assert_eq!(prefs.llm.model, "gpt-4o-mini");
+    }
+
+    #[test]
+    fn test_save_and_load_roundtrip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("prefs.json");
+        let mut prefs = Preferences::default();
+        prefs.general.launch_at_login = true;
+        prefs.llm.temperature = 0.9;
+        save_to_file(&path, &prefs).unwrap();
+        let loaded = load_from_file(&path);
+        assert!(loaded.general.launch_at_login);
+        assert!((loaded.llm.temperature - 0.9).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_save_creates_parent_dirs() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("deep").join("nested").join("prefs.json");
+        let result = save_to_file(&path, &Preferences::default());
+        assert!(result.is_ok());
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn test_load_from_corrupted_file_returns_defaults() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("corrupted.json");
+        std::fs::write(&path, "not valid json!!!").unwrap();
+        let prefs = load_from_file(&path);
+        assert_eq!(prefs.llm.model, "gpt-4o-mini");
+    }
 }

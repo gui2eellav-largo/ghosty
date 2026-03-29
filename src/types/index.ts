@@ -20,6 +20,20 @@ export interface DictionaryEntry {
   created_at: number;
 }
 
+/** Paire (misspelling, correction) détectée par diff transcription/clipboard. */
+export interface WordCandidate {
+  misspelling: string;
+  correction: string;
+  confidence: number;
+}
+
+/** Notification de correction en attente dans le Dashboard. */
+export interface CorrectionNotification {
+  id: string;
+  candidate: WordCandidate;
+  createdAt: number;
+}
+
 export type View = "home" | "modes" | "dictionary" | "settings";
 export type Language = "auto" | "fr" | "en" | "es" | "de";
 /** Stable backend mode ids (display names: Direct, Shape, Reframe, Build). */
@@ -37,8 +51,6 @@ export type SettingsSectionId =
   | "recording"
   | "models"
   | "behavior"
-  | "advanced"
-  | "usage"
   | "api"
   | "account";
 
@@ -63,11 +75,12 @@ export interface Preferences {
     autoUpdate: boolean;
     displayName?: string;
     avatarPath?: string | null;
+    firstRunDone?: boolean;
   };
   shortcut: { modifiers: string[]; key: string };
   recording: { maxDurationMinutes: number; inputDeviceId?: string | null };
-  transcription: { model: string; timeoutSecs: number; language?: string | null };
-  llm: { model: string; temperature: number; maxTokens: number; timeoutSecs: number };
+  transcription: { model: string; timeoutSecs: number; language?: string | null; provider?: string };
+  llm: { model: string; temperature: number; maxTokens: number; timeoutSecs: number; provider?: string };
   behavior: {
     autoCopy: boolean;
     soundOnComplete: boolean;
@@ -93,7 +106,14 @@ export interface ModeConfig {
   isCustom: boolean;
   isDefault: boolean;
   order: number;
-  locked?: boolean;
+}
+
+export interface Snippet {
+  id: string;
+  trigger: string;
+  expansion: string;
+  enabled: boolean;
+  order: number;
 }
 
 export interface ShortcutConfig {

@@ -137,12 +137,12 @@ export const uiClasses = {
 
   // Modal
   modalOverlay: 'fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4',
-  modalContainer: 'bg-white dark:bg-[#0c0c0c] rounded-lg shadow-md w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col',
+  modalContainer: 'bg-white dark:bg-[#0c0c0c] rounded-lg shadow-md w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col text-left',
   modalHeader: 'px-6 py-4 border-b border-black/[0.06] dark:border-white/[0.06]',
-  modalBody: 'flex-1 flex flex-col min-h-0 overflow-hidden',
+  modalBody: 'flex-1 flex flex-col min-h-0 overflow-hidden text-left',
   
-  // Sections (minimal : pas de bordure, padding réduit)
-  sectionHeader: 'mb-3',
+  // Sections (minimal : pas de bordure, padding réduit, alignement à gauche)
+  sectionHeader: 'mb-3 text-left',
   sectionTitle: 'text-lg font-semibold text-black dark:text-white',
   sectionDescription: 'text-xs text-muted-foreground mt-0.5',
   sectionMinimal: 'py-4',
@@ -158,17 +158,17 @@ export const uiClasses = {
   navItemInactive: 'text-muted-foreground hover:text-black dark:hover:text-white hover:bg-black/[0.02] dark:hover:bg-white/[0.02]',
   
   // Inputs
-  input: 'w-full px-3 py-2.5 rounded-lg bg-transparent border border-black/10 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 text-sm transition-all',
-  select: 'w-full px-3 py-2.5 rounded-lg bg-transparent border border-black/10 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20 text-sm transition-all',
+  input: 'w-full px-3 py-2.5 rounded-lg bg-transparent border border-black/10 dark:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/40 text-sm transition-all',
+  select: 'w-full px-3 py-2.5 rounded-lg bg-transparent border border-black/10 dark:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/40 text-sm transition-all',
   
   // Buttons
-  buttonPrimary: 'px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-lg font-semibold text-sm hover:opacity-80 transition-opacity',
-  buttonSecondary: 'px-4 py-2.5 bg-black/5 dark:bg-white/5 text-black dark:text-white rounded-lg font-semibold text-sm hover:bg-black/10 dark:hover:bg-white/10 transition-all',
-  buttonDanger: 'px-4 py-2.5 bg-red-500 text-white rounded-lg font-semibold text-sm hover:bg-red-600 transition-colors',
-  buttonGhost: 'text-muted-foreground hover:text-black dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors rounded',
+  buttonPrimary: 'px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-lg font-semibold text-sm hover:opacity-80 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/40 focus-visible:ring-offset-1',
+  buttonSecondary: 'px-4 py-2.5 bg-black/5 dark:bg-white/5 text-black dark:text-white rounded-lg font-semibold text-sm hover:bg-black/10 dark:hover:bg-white/10 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/40 focus-visible:ring-offset-1',
+  buttonDanger: 'px-4 py-2.5 bg-red-500 text-white rounded-lg font-semibold text-sm hover:bg-red-600 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40 focus-visible:ring-offset-1',
+  buttonGhost: 'text-muted-foreground hover:text-black dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/40',
   
   // Toggle
-  toggle: 'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-black/20 dark:focus:ring-white/20',
+  toggle: 'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40 dark:focus-visible:ring-white/40 focus-visible:ring-offset-1',
   toggleActive: 'bg-green-500',
   toggleInactive: 'bg-black/10 dark:bg-white/10',
   toggleThumb: 'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',

@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { uiClasses } from "@/lib/design-tokens";
+import { strings } from "@/lib/strings";
 import { useEffect, useRef } from "react";
 
 const DIALOG_TITLE_ID = "settings-modal-title";
@@ -84,12 +85,10 @@ export function SettingsModal({ isOpen, onClose, children }: SettingsModalProps)
   if (!isOpen) return null;
 
   return (
-    <button
-      type="button"
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- overlay dismiss handled by Escape key listener
+    <div
       className={uiClasses.modalOverlay}
       onClick={onClose}
-      onKeyDown={(e) => e.key === "Escape" && onClose()}
-      aria-label="Close modal"
     >
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- dialog content: stopPropagation only */}
       <div
@@ -108,20 +107,20 @@ export function SettingsModal({ isOpen, onClose, children }: SettingsModalProps)
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground mb-1">
-                SETTINGS
+                {strings.settings.title}
               </div>
               <h2
                 id={DIALOG_TITLE_ID}
                 className="text-2xl font-semibold text-black dark:text-white"
               >
-                Preferences
+                {strings.settings.subtitle}
               </h2>
             </div>
             <button
               type="button"
               onClick={onClose}
               className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/30 transition-colors"
-              aria-label="Close settings"
+              aria-label={strings.settings.closeSettings}
             >
               <X size={20} className="text-muted-foreground" />
             </button>
@@ -130,7 +129,7 @@ export function SettingsModal({ isOpen, onClose, children }: SettingsModalProps)
 
         <div className={uiClasses.modalBody}>{children}</div>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -157,16 +156,17 @@ export function SettingsSection({ title, description, children }: SettingsSectio
 interface SettingsRowProps {
   label: string;
   description?: string;
+  htmlFor?: string;
   children: React.ReactNode;
 }
 
-export function SettingsRow({ label, description, children }: SettingsRowProps) {
+export function SettingsRow({ label, description, htmlFor, children }: SettingsRowProps) {
   return (
     <div className="flex items-center justify-between py-4 border-b border-black/[0.06] dark:border-white/[0.06] last:border-0">
       <div className="flex-1">
-        <div className="text-sm font-medium text-black dark:text-white">
+        <label htmlFor={htmlFor} className="text-sm font-medium text-black dark:text-white cursor-default">
           {label}
-        </div>
+        </label>
         {description && (
           <div className="text-xs text-muted-foreground mt-0.5">
             {description}
@@ -184,14 +184,16 @@ interface ToggleSwitchProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  "aria-label"?: string;
 }
 
-export function ToggleSwitch({ checked, onChange, disabled = false }: ToggleSwitchProps) {
+export function ToggleSwitch({ checked, onChange, disabled = false, "aria-label": ariaLabel }: ToggleSwitchProps) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={ariaLabel}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(

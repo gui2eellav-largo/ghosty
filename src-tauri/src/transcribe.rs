@@ -67,16 +67,39 @@ async fn transcribe_bytes_internal(
     wav_bytes: &[u8],
     app: &tauri::AppHandle,
 ) -> Result<String, String> {
-    let api_key = crate::secrets::get_api_key_cached()?;
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
+    let provider = prefs.transcription.provider.as_str();
     let timeout_secs = prefs.transcription.timeout_secs.clamp(10, 120);
-    let model = prefs.transcription.model.clone();
-    let base_url = prefs
-        .advanced
-        .transcription_base_url
-        .as_deref()
-        .unwrap_or("https://api.openai.com")
-        .trim_end_matches('/');
+
+    // Resolve API key and base URL based on provider
+    let (api_key, base_url, model) = match provider {
+        "groq" => {
+            let key = crate::secrets::get_key_for_provider("groq")
+                .map_err(|_| "No Groq API key found. Add a Groq key (gsk_...) in Settings → API Keys.".to_string())?;
+            let url = prefs.advanced.transcription_base_url
+                .as_deref()
+                .unwrap_or("https://api.groq.com/openai")
+                .trim_end_matches('/')
+                .to_string();
+            // Groq supports whisper-large-v3-turbo (fastest) and whisper-large-v3
+            let model = if prefs.transcription.model.starts_with("whisper-large") {
+                prefs.transcription.model.clone()
+            } else {
+                "whisper-large-v3-turbo".to_string()
+            };
+            (key, url, model)
+        }
+        _ => {
+            // OpenAI (default)
+            let key = crate::secrets::get_api_key_cached()?;
+            let url = prefs.advanced.transcription_base_url
+                .as_deref()
+                .unwrap_or("https://api.openai.com")
+                .trim_end_matches('/')
+                .to_string();
+            (key, url, prefs.transcription.model.clone())
+        }
+    };
     let url = format!("{}/v1/audio/transcriptions", base_url);
 
     let part = reqwest::multipart::Part::bytes(wav_bytes.to_vec())
@@ -127,4 +150,164 @@ async fn transcribe_bytes_internal(
     }
 
     Ok(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── is_whisper_hallucination ─────────────────────────────────────
+
+    #[test]
+    fn test_hallucination_subtitles_french() {
+        assert!(is_whisper_hallucination("Sous-titres réalisés par la communauté"));
+    }
+
+    #[test]
+    fn test_hallucination_subtitles_by() {
+        assert!(is_whisper_hallucination("Subtitles by the Amara.org community"));
+    }
+
+    #[test]
+    fn test_hallucination_amara() {
+        assert!(is_whisper_hallucination("amara.org"));
+    }
+
+    #[test]
+    fn test_hallucination_thank_you_for_watching() {
+        assert!(is_whisper_hallucination("Thank you for watching!"));
+    }
+
+    #[test]
+    fn test_hallucination_merci_davoir_regarde() {
+        assert!(is_whisper_hallucination("Merci d'avoir regardé"));
+    }
+
+    #[test]
+    fn test_hallucination_please_subscribe() {
+        assert!(is_whisper_hallucination("Please subscribe and like"));
+    }
+
+    #[test]
+    fn test_hallucination_like_and_subscribe() {
+        assert!(is_whisper_hallucination("Like and subscribe"));
+    }
+
+    #[test]
+    fn test_hallucination_korean() {
+        assert!(is_whisper_hallucination("시청해주셔서 감사합니다"));
+    }
+
+    #[test]
+    fn test_hallucination_chinese() {
+        assert!(is_whisper_hallucination("请不吝点赞"));
+    }
+
+    #[test]
+    fn test_hallucination_japanese() {
+        assert!(is_whisper_hallucination("ご視聴ありがとうございました"));
+    }
+
+    // ── Short exact-match hallucinations ─────────────────────────────
+
+    #[test]
+    fn test_hallucination_short_merci() {
+        assert!(is_whisper_hallucination("Merci"));
+        assert!(is_whisper_hallucination("merci"));
+        assert!(is_whisper_hallucination("merci."));
+    }
+
+    #[test]
+    fn test_hallucination_short_bonjour() {
+        assert!(is_whisper_hallucination("Bonjour"));
+        assert!(is_whisper_hallucination("bonjour."));
+    }
+
+    #[test]
+    fn test_hallucination_short_hello() {
+        assert!(is_whisper_hallucination("hello"));
+        assert!(is_whisper_hallucination("Hello."));
+    }
+
+    #[test]
+    fn test_hallucination_short_bye() {
+        assert!(is_whisper_hallucination("bye"));
+        assert!(is_whisper_hallucination("Bye"));
+    }
+
+    #[test]
+    fn test_hallucination_short_oui_non() {
+        assert!(is_whisper_hallucination("oui"));
+        assert!(is_whisper_hallucination("non"));
+        assert!(is_whisper_hallucination("ok"));
+    }
+
+    // ── Case insensitive matching ───────────────────────────────────
+
+    #[test]
+    fn test_hallucination_case_insensitive_long() {
+        assert!(is_whisper_hallucination("SOUS-TITRES RÉALISÉS PAR la communauté"));
+        assert!(is_whisper_hallucination("THANK YOU FOR WATCHING"));
+    }
+
+    #[test]
+    fn test_hallucination_case_insensitive_short() {
+        assert!(is_whisper_hallucination("MERCI"));
+        assert!(is_whisper_hallucination("OK"));
+    }
+
+    // ── Legitimate text passes through ──────────────────────────────
+
+    #[test]
+    fn test_legitimate_text_passes() {
+        assert!(!is_whisper_hallucination("I need to schedule a meeting for tomorrow"));
+    }
+
+    #[test]
+    fn test_legitimate_french_text_passes() {
+        assert!(!is_whisper_hallucination("Je dois planifier une réunion pour demain"));
+    }
+
+    #[test]
+    fn test_legitimate_short_sentence_passes() {
+        assert!(!is_whisper_hallucination("Let's go"));
+    }
+
+    #[test]
+    fn test_merci_inside_longer_sentence_not_hallucination() {
+        // "merci" as a short hallucination only matches when it IS the entire text
+        assert!(!is_whisper_hallucination("merci beaucoup pour votre aide"));
+    }
+
+    #[test]
+    fn test_hello_inside_longer_sentence_not_hallucination() {
+        assert!(!is_whisper_hallucination("hello everyone, welcome to the presentation"));
+    }
+
+    // ── Edge cases ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_empty_text_not_hallucination() {
+        assert!(!is_whisper_hallucination(""));
+    }
+
+    #[test]
+    fn test_whitespace_only_not_hallucination() {
+        assert!(!is_whisper_hallucination("   "));
+    }
+
+    #[test]
+    fn test_single_period_not_hallucination() {
+        assert!(!is_whisper_hallucination("."));
+    }
+
+    #[test]
+    fn test_sous_titrage_variant() {
+        assert!(is_whisper_hallucination("Sous-titrage ST' 501"));
+    }
+
+    #[test]
+    fn test_thanks_for_watching_variant() {
+        assert!(is_whisper_hallucination("thanks for watching and see you next time"));
+    }
 }

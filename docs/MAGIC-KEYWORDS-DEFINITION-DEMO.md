@@ -1,89 +1,89 @@
-# Magic keywords en prompting : définition et démonstration
+# Magic keywords in prompting: definition and demo
 
-## Définition précise
+## Precise definition
 
-Un **magic keyword** est une expression courte (mot ou 2–3 mots) qui, insérée dans un prompt, active un **pattern de réponse** déjà appris par le LLM pendant l’entraînement.
+A **magic keyword** is a short expression (one word or 2–3 words) that, when inserted into a prompt, activates a **response pattern** already learned by the LLM during training.
 
-### Conditions pour qu’un terme soit un magic keyword
+### Conditions for a term to be a magic keyword
 
-1. **Fréquence** : il apparaît souvent dans des corpus où une certaine forme de réponse est attendue (rigueur, séquence, concision, etc.).
-2. **Association** : le modèle a appris l’association « ce terme → ce type de réponse ».
-3. **Spécificité** : il active un pattern précis, pas une réponse générique.
-4. **Contrainte** : il impose une contrainte sur la sortie (structure, profondeur, format), pas du vocabulaire décoratif.
+1. **Frequency**: It appears often in corpora where a certain form of response is expected (rigor, sequence, concision, etc.).
+2. **Association**: The model has learned the association "this term → this type of response".
+3. **Specificity**: It activates a precise pattern, not a generic response.
+4. **Constraint**: It imposes a constraint on the output (structure, depth, format), not decorative vocabulary.
 
-En résumé : **comportement de réponse visé → genre de discours où ce comportement est la norme → expressions qui, dans ce genre, signalent ce comportement → choix du signal le plus spécifique et contraignant.**
+In short: **target response behavior → kind of discourse where that behavior is the norm → expressions that, in that genre, signal that behavior → choose the most specific and constraining signal.**
 
-### Angle sémantique (ce qu’ils sont)
+### Semantic angle (what they are)
 
-Les magic keywords sont d’abord des **mots parfaitement adaptés** pour décrire une méthodologie, un concept ou une situation. Ce sont souvent les termes très précis employés par le **top 0,1 % des experts** d’un domaine : sémantique pure, pas du remplissage. Un seul mot bien choisi (ex. *MECE*, *premortem*, *document triage*) remplace une phrase explicative et ancre la demande dans un cadre que le modèle reconnaît. L’effet « activation de pattern » vient justement du fait que ce vocabulaire expert apparaît dans des contextes de haute qualité pendant l’entraînement : précision sémantique et contrainte sur la réponse sont deux faces du même phénomène.
+Magic keywords are first **perfectly suited words** to describe a methodology, a concept, or a situation. They are often the very precise terms used by the **top 0.1% of experts** in a field: pure semantics, no filler. One well-chosen word (e.g. *MECE*, *premortem*, *document triage*) replaces an explanatory phrase and anchors the request in a frame the model recognizes. The "pattern activation" effect comes from the fact that this expert vocabulary appears in high-quality contexts during training: semantic precision and response constraint are two sides of the same phenomenon.
 
-### Typologie (d’après le projet)
+### Typology (from the project)
 
-| Type | Rôle | Exemples |
+| Type | Role | Examples |
 |------|------|----------|
-| **Style / raisonnement** | Comment répondre (forme) | Terse, Step by step, Devil's advocate |
-| **Méthode / framework** | Comment traiter (procédure) | MECE, Five Whys, Root cause analysis, Premortem |
-| **Concept précis** | Quoi appliquer (domaine) | Single source of truth, document triage, retention policy |
+| **Style / reasoning** | How to respond (form) | Terse, Step by step, Devil's advocate |
+| **Method / framework** | How to process (procedure) | MECE, Five Whys, Root cause analysis, Premortem |
+| **Precise concept** | What to apply (domain) | Single source of truth, document triage, retention policy |
 
 ---
 
-## Démonstration : même demande, avec et sans magic keywords
+## Demo: same request, with and without magic keywords
 
-### Contexte
+### Context
 
-Demande utilisateur (voix ou texte) : *« Explique-moi pourquoi notre API renvoie parfois 500 et comment on pourrait corriger. »*
-
----
-
-### Version A : sans magic keywords (prompt brut)
-
-```
-Explique-moi pourquoi notre API renvoie parfois 500 et comment on pourrait corriger.
-```
-
-**Réponse typique du LLM** : explication générale, liste de causes possibles sans priorisation, recommandations vagues (« vérifier les logs », « ajouter du monitoring »), peu structurée.
+User request (voice or text): *"Explain why our API sometimes returns 500 and how we could fix it."*
 
 ---
 
-### Version B : avec magic keywords (enrichi)
-
-Même intention, mais on ajoute des termes qui contraignent la forme et la profondeur :
+### Version A: without magic keywords (raw prompt)
 
 ```
-Root cause analysis : pourquoi notre API renvoie parfois 500. Step by step, isoler causes probables puis prioriser. Trade-offs pour chaque correctif. Recommandations actionable only.
+Explain why our API sometimes returns 500 and how we could fix it.
 ```
 
-**Effet attendu** :
-- **Root cause analysis** → raisonnement causal structuré, pas juste une liste.
-- **Step by step** → séquence claire (observation → hypothèses → vérification → conclusion).
-- **Trade-offs** → pour chaque correctif, avantages/inconvénients explicites.
-- **Actionable only** → pas de théorie, uniquement ce qu’on peut faire concrètement.
-
-La réponse tend vers : diagnostic méthodique, causes ordonnées, options avec trade-offs, et recommandations implémentables.
+**Typical LLM response**: General explanation, list of possible causes without prioritization, vague recommendations ("check the logs", "add monitoring"), loosely structured.
 
 ---
 
-### Version C : stacking (méthodologie + action + qualifier)
+### Version B: with magic keywords (enriched)
 
-Pattern recommandé dans Ghosty : `[Méthodologie] + [Action cognitive] + [Qualifier de sortie]`.
+Same intent, but we add terms that constrain form and depth:
 
 ```
-Forensic analysis. MECE breakdown des causes possibles (côté serveur, réseau, données, dépendances). Distill en 3–5 causes probables. Actionable only.
+Root cause analysis: why our API sometimes returns 500. Step by step, isolate likely causes then prioritize. Trade-offs for each fix. Recommendations actionable only.
 ```
 
-- **Forensic analysis** → investigation rigoureuse, pas superficielle.
-- **MECE breakdown** → catégories mutuellement exclusives et exhaustives.
-- **Distill** → extraire l’essentiel, pas de flou.
-- **Actionable only** → livrable directement utilisable.
+**Expected effect**:
+- **Root cause analysis** → structured causal reasoning, not just a list.
+- **Step by step** → clear sequence (observation → hypotheses → verification → conclusion).
+- **Trade-offs** → for each fix, explicit pros/cons.
+- **Actionable only** → no theory, only what can be done concretely.
+
+The response tends toward: methodical diagnosis, ordered causes, options with trade-offs, and implementable recommendations.
 
 ---
 
-## Synthèse
+### Version C: stacking (methodology + action + qualifier)
 
-| Sans magic keywords | Avec magic keywords |
-|---------------------|---------------------|
-| « Explique en détail » | « Forensic analysis. Step by step. » |
-| Réponse générique, longue | Réponse cadrée (structure, profondeur, format) |
-| Beaucoup de tokens pour peu de contrainte | Peu de tokens pour une contrainte forte |
+Recommended pattern in Ghosty: `[Methodology] + [Cognitive action] + [Output qualifier]`.
 
-**En une phrase** : un magic keyword est un **signal court**, ancré dans un genre de discours de qualité, qui **contraint** la sortie du modèle sans avoir à détailler la consigne en phrases longues.
+```
+Forensic analysis. MECE breakdown of possible causes (server, network, data, dependencies). Distill into 3–5 likely causes. Actionable only.
+```
+
+- **Forensic analysis** → rigorous investigation, not superficial.
+- **MECE breakdown** → mutually exclusive and collectively exhaustive categories.
+- **Distill** → extract the essence, no vagueness.
+- **Actionable only** → directly usable deliverable.
+
+---
+
+## Summary
+
+| Without magic keywords | With magic keywords |
+|------------------------|---------------------|
+| "Explain in detail" | "Forensic analysis. Step by step." |
+| Generic, long response | Framed response (structure, depth, format) |
+| Many tokens for little constraint | Few tokens for strong constraint |
+
+**In one sentence**: A magic keyword is a **short signal**, anchored in a quality discourse genre, that **constrains** the model's output without having to spell out the instruction in long sentences.

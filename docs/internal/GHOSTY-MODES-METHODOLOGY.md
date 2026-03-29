@@ -59,7 +59,7 @@ Each Ghosty mode = **2-4 magic keywords** combination defining:
 2. **Cognitive action** (transformation type)
 3. **Output qualifier** (constraints)
 
-### Mode Template (méthodologie)
+### Mode Template (methodology)
 
 ```typescript
 {

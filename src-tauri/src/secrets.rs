@@ -38,6 +38,7 @@ fn validate_api_key(key: &str, provider: &str) -> Result<(), String> {
     match provider {
         "openai" => validate_openai_key(key),
         "anthropic" => validate_anthropic_key(key),
+        "groq" => validate_groq_key(key),
         "custom" => validate_custom_key(key),
         _ => Err(format!("Provider inconnu: {}", provider)),
     }
@@ -80,6 +81,17 @@ fn validate_anthropic_key(key: &str) -> Result<(), String> {
         return Err("Clé contient des caractères invalides".to_string());
     }
 
+    Ok(())
+}
+
+/// Validation Groq
+fn validate_groq_key(key: &str) -> Result<(), String> {
+    if !key.starts_with("gsk_") {
+        return Err("Format Groq invalide: doit commencer par 'gsk_'".to_string());
+    }
+    if key.len() < 20 {
+        return Err("Clé Groq trop courte".to_string());
+    }
     Ok(())
 }
 
@@ -378,59 +390,79 @@ pub fn get_active_key() -> Result<String, String> {
     get_api_key()
 }
 
+/// Get the API key for a specific provider (searches all stored keys).
+/// Falls back to the active key if no provider-specific key is found.
+#[cfg(target_os = "macos")]
+pub fn get_key_for_provider(provider: &str) -> Result<String, String> {
+    let config = get_keys_config()?;
+    // First try to find a key matching the requested provider
+    if let Some(entry) = config.keys.iter().find(|k| k.provider == provider) {
+        return Ok(entry.key.clone());
+    }
+    // Fallback to active key
+    get_active_key()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn get_key_for_provider(_provider: &str) -> Result<String, String> {
+    get_api_key()
+}
+
 // ============================================================================
 // LEGACY FUNCTIONS (Compatibilité)
 // ============================================================================
 
-/// Teste la validité d'une clé API en appelant l'API OpenAI
-pub async fn test_api_key(key: &str) -> Result<(), String> {
+/// Test an API key by calling the provider's /models endpoint.
+pub async fn test_api_key(key: &str, provider: &str) -> Result<(), String> {
     use std::time::Duration;
 
-    // Validation format d'abord
-    validate_openai_key(key)?;
+    // Validate format first
+    validate_api_key(key, provider)?;
 
-    // Client HTTP avec timeout
+    let (base_url, provider_label) = match provider {
+        "groq" => ("https://api.groq.com/openai", "Groq"),
+        "anthropic" => ("https://api.anthropic.com", "Anthropic"),
+        _ => ("https://api.openai.com", "OpenAI"),
+    };
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()
         .map_err(|e| format!("Erreur création client: {}", e))?;
 
-    // Test avec endpoint /models (léger et rapide)
+    let url = format!("{}/v1/models", base_url);
     let resp = client
-        .get("https://api.openai.com/v1/models")
+        .get(&url)
         .header("Authorization", format!("Bearer {}", key))
         .send()
         .await
         .map_err(|e| {
             if e.is_timeout() {
-                "Timeout: impossible de contacter OpenAI. Vérifiez votre connexion.".to_string()
+                format!("Timeout: impossible de contacter {}.", provider_label)
             } else if e.is_connect() {
-                "Impossible de se connecter à OpenAI. Vérifiez votre connexion internet."
-                    .to_string()
+                format!("Impossible de se connecter à {}. Vérifiez votre connexion.", provider_label)
             } else {
                 format!("Erreur réseau: {}", e)
             }
         })?;
 
-    // Analyse du code de statut
     match resp.status() {
         s if s.is_success() => Ok(()),
         reqwest::StatusCode::UNAUTHORIZED => {
-            Err("Clé API invalide ou révoquée par OpenAI.".to_string())
+            Err(format!("Clé révoquée ou invalide pour {}.", provider_label))
         }
         reqwest::StatusCode::FORBIDDEN => {
             Err("Accès refusé. Vérifiez les permissions de votre clé API.".to_string())
         }
         reqwest::StatusCode::TOO_MANY_REQUESTS => Err(
-            "Quota dépassé. Attendez quelques minutes ou vérifiez votre plan OpenAI.".to_string(),
+            "Quota dépassé. Attendez quelques minutes.".to_string(),
         ),
         reqwest::StatusCode::SERVICE_UNAVAILABLE => Err(
-            "Service OpenAI temporairement indisponible. Réessayez dans quelques instants."
-                .to_string(),
+            format!("Service {} temporairement indisponible.", provider_label),
         ),
         status => Err(format!(
-            "Erreur API OpenAI: {} - Vérifiez votre clé.",
-            status
+            "Erreur API {}: {} - Vérifiez votre clé.",
+            provider_label, status
         )),
     }
 }

@@ -4,6 +4,7 @@ import { getCurrentWindow, Window, primaryMonitor } from "@tauri-apps/api/window
 import { listen, emit } from "@tauri-apps/api/event";
 import { cn } from "@/lib/utils";
 import { designTokens } from "@/lib/design-tokens";
+import { strings } from "@/lib/strings";
 import { useFloatingWindowBounds, type FloatingLayoutMode } from "@/hooks/useFloatingWindowBounds";
 import { api } from "@/api/tauri";
 import type { Mode, ModeConfig, WordCandidate } from "@/types";
@@ -35,6 +36,9 @@ export default function FloatingBar() {
   const menuRef = useRef<HTMLDivElement>(null);
   const [correctionCandidates, setCorrectionCandidates] = useState<WordCandidate[]>([]);
   const [clipboardToast, setClipboardToast] = useState(false);
+  const [errorFlash, setErrorFlash] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [streamingText, setStreamingText] = useState<string>("");
   const monitoringIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const monitoringStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,8 +58,9 @@ export default function FloatingBar() {
       setModes(enabledModes);
 
       setSelectedModeConfig((current) => {
-        if (current && enabledModes.some(m => m.id === current.id)) return current;
-        return enabledModes[0] ?? null;
+        // Always use fresh mode data — prompt may have been edited in settings
+        const fresh = current ? enabledModes.find(m => m.id === current.id) : undefined;
+        return fresh ?? enabledModes[0] ?? null;
       });
       setSelectedMode((current) => {
         if (enabledModes.some(m => m.id === current)) return current;
@@ -123,12 +128,19 @@ export default function FloatingBar() {
 
   // Listen to recording events from Tauri
   useEffect(() => {
-    const unlistenStarted = listen("recording_started", () => setVoiceState("recording"));
+    const unlistenStarted = listen("recording_started", () => {
+      setVoiceState("recording");
+      setStreamingText("");
+    });
     const unlistenStopped = listen("recording_stopped", () => setVoiceState("processing"));
+    const unlistenChunk = listen<string>("llm_chunk", (event) => {
+      setStreamingText(event.payload);
+    });
     const unlistenReady = listen<{ pasted?: boolean }>("transcription_ready", (event) => {
       setVoiceState("success");
-      // If not pasted (no focused textbox), show clipboard toast
-      if (event.payload && event.payload.pasted === false) {
+      setStreamingText("");
+      // Show toast only when no text field was focused (clipboard-only)
+      if (!event.payload?.pasted) {
         setClipboardToast(true);
         setTimeout(() => setClipboardToast(false), 2000);
       }
@@ -161,23 +173,55 @@ export default function FloatingBar() {
         }, 30_000);
       }, 1500);
     });
-    const unlistenError = listen("transcription_error", () => setVoiceState("idle"));
+    const unlistenError = listen<string>("transcription_error", (event) => {
+      setVoiceState("idle");
+      setStreamingText("");
+      const msg = event.payload;
+      const short = msg.includes("403") || msg.includes("Access denied")
+        ? "Connection blocked"
+        : msg.includes("timeout") || msg.includes("Timeout")
+        ? "Request timed out"
+        : msg.includes("No Groq")
+        ? "Missing Groq key"
+        : msg.includes("Clé") || msg.includes("No OpenAI")
+        ? "Missing API key"
+        : "Error";
+      setErrorMessage(short);
+      // 3.5s = CSS animation duration. Pill pulse at the end masks the height shrink.
+      setTimeout(() => {
+        setErrorFlash(true);
+      }, 3200);
+      setTimeout(() => {
+        setErrorMessage(null);
+      }, 3500);
+      setTimeout(() => {
+        setErrorFlash(false);
+      }, 3800);
+    });
 
     return () => {
       const run = (p: Promise<() => void>) => p.then((u) => { try { u(); } catch { /* listener already removed */ } }).catch(() => {});
       run(unlistenStarted);
       run(unlistenStopped);
+      run(unlistenChunk);
       run(unlistenReady);
       run(unlistenError);
     };
   }, []);
 
   const layoutMode: FloatingLayoutMode = isMenuOpen || isMenuClosing ? "menu" : "pill";
-  useFloatingWindowBounds(layoutMode, positionReady, centerXRef, windowYRef);
+  const showStreaming = voiceState === "processing" && streamingText.length > 0;
+  useFloatingWindowBounds(layoutMode, positionReady, centerXRef, windowYRef, clipboardToast || !!errorMessage);
+
+  // Don't steal keyboard focus during recording/processing — the user's app
+  // (Notes, browser, etc.) must keep focus so auto-paste (Cmd+V) lands there.
+  const isVoiceActive = voiceState === "recording" || voiceState === "processing";
 
   const keepWindowInteractive = () => {
     invoke('set_window_click_through', { ignore: false }).catch(console.error);
-    windowRef.current.setFocus().catch(() => {});
+    if (!isVoiceActive) {
+      windowRef.current.setFocus().catch(() => {});
+    }
   };
   useEffect(() => {
     keepWindowInteractive();
@@ -190,12 +234,15 @@ export default function FloatingBar() {
   }, [layoutMode, positionReady]);
 
   // Donner le focus à la fenêtre quand le curseur entre dans ses bounds (macOS n'envoie pas hover sinon)
+  // SKIP during recording/processing to preserve user's app focus for auto-paste.
   useEffect(() => {
     const id = setInterval(() => {
-      invoke("focus_floating_if_cursor_inside").catch(() => {});
+      if (!isVoiceActive) {
+        invoke("focus_floating_if_cursor_inside").catch(() => {});
+      }
     }, 120);
     return () => clearInterval(id);
-  }, []);
+  }, [isVoiceActive]);
 
   const _handleModeClick = (mode: Mode) => {
     const modeConfig = modes.find(m => m.id === mode);
@@ -369,6 +416,7 @@ export default function FloatingBar() {
     } else if (voiceState === "processing") {
       invoke('cancel_transcription').catch(console.error);
       setVoiceState("idle");
+      setStreamingText("");
     }
   };
 
@@ -376,7 +424,13 @@ export default function FloatingBar() {
     setSelectedMode(mode.id as Mode);
     setSelectedModeConfig(mode);
     setIsMenuOpen(false);
+    setIsHovered(false);
     api.modes.setActivePrompt(mode.systemPrompt, mode.id).catch(console.error);
+    // Force pill bounds immediately — the layoutEffect may race with the menu unmount
+    const w = fw.expandedWidth + 2 * fw.bouncePadding;
+    const h = fw.pillSize + 2 * fw.bouncePadding;
+    const x = Math.round(centerXRef.current - w / 2);
+    invoke("set_floating_window_bounds", { x, y: windowYRef.current, width: w, height: h }).catch(console.error);
   };
 
   const MENU_CLOSE_COOLDOWN_MS = 320;
@@ -474,7 +528,8 @@ export default function FloatingBar() {
                 ? "[background:var(--floating-pill-bg-processing)] border [border-color:var(--floating-pill-border-processing)]"
                 : "[background:var(--floating-pill-bg)] border [border-color:var(--floating-pill-border)]",
               "hover:[background:var(--floating-pill-bg)]",
-              voiceState === "success" && "animate-pulse-success"
+              voiceState === "success" && "animate-pulse-success",
+              errorFlash && "animate-pulse-error"
             )}
             style={{
               width: `${fw.expandedWidth}px`,
@@ -590,9 +645,9 @@ export default function FloatingBar() {
                 type="button"
                 onClick={openSettingsToApi}
                 className="underline hover:no-underline text-white"
-                aria-label="Configure API key"
+                aria-label={strings.floatingBar.configureApiKey}
               >
-                Configurer la clé API
+                {strings.floatingBar.configureApiKey}
               </button>
             </p>
           </div>
@@ -651,7 +706,7 @@ export default function FloatingBar() {
             }}
           >
             {modes.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-white/50">Chargement…</div>
+              <div className="px-3 py-2 text-xs text-white/50">{strings.floatingBar.loading}</div>
             ) : (
             modes.map((mode, i) => (
               <button
@@ -691,6 +746,29 @@ export default function FloatingBar() {
         )}
       </div>
 
+      {/* Streaming text preview — shown during LLM processing */}
+      {showStreaming && (
+        <div
+          className="absolute z-[50] flex items-center px-2.5 py-1 rounded-full text-[10px] text-white/70"
+          style={{
+            top: `${fw.pillSize + fw.bouncePadding + 6}px`,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(8px)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            maxWidth: "280px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            opacity: 1,
+            animation: "fadeIn 200ms ease-out",
+          }}
+        >
+          {streamingText.length > 60 ? streamingText.slice(0, 60) + "\u2026" : streamingText}
+        </div>
+      )}
+
       {/* Clipboard-only toast — shown when no textbox was focused */}
       {clipboardToast && (
         <div
@@ -709,9 +787,29 @@ export default function FloatingBar() {
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          Copié
+          {strings.floatingBar.copied}
         </div>
       )}
+
+      {/* Error panel */}
+      {errorMessage && (
+        <div
+          className="absolute z-[50] flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium text-white/90 animate-error-toast"
+          style={{
+            top: `${fw.pillSize + fw.bouncePadding + 6}px`,
+            left: "50%",
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#ef4444", flexShrink: 0 }} />
+          {errorMessage}
+        </div>
+      )}
+
     </div>
   );
 }

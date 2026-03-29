@@ -1,79 +1,79 @@
 # 🚀 Dictionary System - Quick Start
 
-## Installation complète
+## Full installation
 
-Le système de dictionnaire est maintenant intégré à Ghosty. Voici ce qui a été ajouté :
+The dictionary system is now integrated into Ghosty. Here is what was added:
 
 ### Backend (Rust)
-- ✅ `src-tauri/src/dictionary.rs` - Module complet de gestion
-- ✅ 6 nouvelles commandes Tauri exposées
-- ✅ Intégration automatique avec l'API Whisper
-- ✅ Persistance JSON dans AppData
+- ✅ `src-tauri/src/dictionary.rs` - Full management module
+- ✅ 6 new Tauri commands exposed
+- ✅ Automatic integration with Whisper API
+- ✅ JSON persistence in AppData
 
 ### Frontend (React/TypeScript)
-- ✅ `src/components/AddWordModal.tsx` - Modal d'ajout
-- ✅ Vue Dictionary refactorisée dans `Dashboard.tsx`
-- ✅ Recherche, import/export, suppression
+- ✅ `src/components/AddWordModal.tsx` - Add-word modal
+- ✅ Dictionary view refactored in `Dashboard.tsx`
+- ✅ Search, import/export, delete
 
-### Dépendance ajoutée
+### Added dependency
 ```bash
-# Dans src-tauri/Cargo.toml
-chrono = "0.4"  # Pour les timestamps
+# In src-tauri/Cargo.toml
+chrono = "0.4"  # For timestamps
 ```
 
-## Compiler et tester
+## Build and test
 
-### 1. Installer Rust si besoin
+### 1. Install Rust if needed
 ```bash
-# Si vous avez l'erreur "rustup could not choose a version"
+# If you get "rustup could not choose a version"
 rustup default stable
 ```
 
-### 2. Compiler le backend
+### 2. Build the backend
 ```bash
 cd src-tauri
 cargo build
 ```
 
-### 3. Lancer l'application
+### 3. Launch the application
 ```bash
 cd ..
 npm run tauri dev
 ```
 
-## Utilisation rapide
+## Quick usage
 
-### Ajouter votre premier mot
+### Add your first word
 
-1. **Ouvrir l'app Ghosty**
-2. **Aller dans "Dictionary"** (sidebar)
-3. **Cliquer "Add Word"**
-4. Remplir :
+1. **Open the Ghosty app**
+2. **Go to "Dictionary"** (sidebar)
+3. **Click "Add Word"**
+4. Fill in:
    - Word: `Tauri`
    - Type: `Framework`
-   - Pronunciation: `tow-ree` (optionnel)
-5. **Cliquer "Add to Dictionary"**
+   - Pronunciation: `tow-ree` (optional)
+5. **Click "Add to Dictionary"**
 
-### Tester la transcription améliorée
+### Test improved transcription
 
-1. **Dicter vocalement :**
-   - Avant : "I'm using Tory for my app" ❌
-   - Après : "I'm using Tauri for my app" ✅
+1. **Dictate:**
+   - Before: "I'm using Tory for my app" ❌
+   - After: "I'm using Tauri for my app" ✅
 
-2. **Vérifier que le mot est bien passé à Whisper :**
-   - Ouvrir les DevTools Rust (`cargo run` en console)
-   - Chercher le log de la requête Whisper
-   - Le paramètre `prompt` devrait contenir vos mots
+2. **Verify the word is passed to Whisper:**
+   - Open Rust DevTools (`cargo run` in console)
+   - Find the Whisper request log
+   - The `prompt` parameter should contain your words
 
-## Exemples d'utilisation
+## Usage examples
 
-### Développeur Rust
+### Rust developer
 ```typescript
 await invoke("add_dictionary_entry", {
   word: "tokio",
   entryType: "Framework",
   pronunciation: "toh-kee-oh",
-  misspellings: ["tokyo"]  // optionnel
+  misspellings: ["tokyo"]  // optional
 });
 
 await invoke("update_dictionary_entry", { id, word, entryType, pronunciation?, misspellings? });
@@ -116,7 +116,7 @@ await invoke("add_dictionary_entry", {
 
 ### Exporter votre dictionnaire
 ```bash
-1. Cliquer "Export" dans Dictionary
+1. Click "Export" in Dictionary
 2. Fichier téléchargé : ghosty-dictionary-{timestamp}.json
 ```
 
@@ -133,7 +133,7 @@ await invoke("add_dictionary_entry", {
 // Lire toutes les entrées
 const entries = await invoke<DictionaryEntry[]>("get_dictionary_entries");
 
-// Ajouter une entrée
+// Add an entry
 const entry = await invoke<DictionaryEntry>("add_dictionary_entry", {
   word: "React",
   entryType: "Framework",
@@ -161,11 +161,11 @@ const updated = await invoke<DictionaryEntry[]>("import_dictionary_entries", {
 });
 ```
 
-## Dépannage
+## Troubleshooting
 
 ### L'app ne compile pas
 ```bash
-# Vérifier que Rust est installé
+# Verify Rust is installed
 rustup --version
 
 # Installer stable si besoin
@@ -178,10 +178,10 @@ cargo build
 ```
 
 ### Les mots ne sont pas mieux transcrits
-1. Vérifier que le mot est bien dans le dictionnaire
+1. Verify the word is in the dictionary
 2. Tester avec un mot très différent phonétiquement
-3. Ajouter une prononciation phonétique
-4. Vérifier les logs Rust pour voir le prompt envoyé
+3. Add a phonetic pronunciation
+4. Check Rust logs to see the prompt sent
 
 ### Le fichier dictionary.json
 ```bash
@@ -195,24 +195,24 @@ cargo build
 ~/.config/com.ghosty.app/dictionary.json
 ```
 
-## Vérifier que les ajouts influencent les réponses
+## Verify that additions affect results
 
-1. **Avant** : dicte une phrase avec le mot (ex. « Guillaume part en meeting ») et note ce que Whisper transcrit.
-2. **Ajoute** le mot au dictionnaire (ex. « Guillaume »).
-3. **Après** : redicte la même phrase et compare le résultat dans l’historique (Home).
-4. Si le mot reste mal reconnu : ajoute des **variantes** (orthographes alternatives) ou vérifie que la langue de transcription correspond à ta voix.
+1. **Before**: Dictate a sentence with the word (e.g. "Guillaume part en meeting") and note what Whisper transcribes.
+2. **Add** the word to the dictionary (e.g. "Guillaume").
+3. **After**: Dictate the same sentence again and compare the result in history (Home).
+4. If the word is still misrecognized: add **variants** (alternative spellings) or check that the transcription language matches your voice.
 
-## Cas limites et compromis
+## Edge cases and trade-offs
 
-- **Taille du prompt** : Whisper limite la longueur du `prompt`. Beaucoup de mots → seuls les premiers sont pris en compte. Priorise les termes les plus utiles.
-- **Langue** : le dictionnaire aide surtout si la langue de transcription (Settings) est cohérente avec ta voix. Un mot en anglais dans une phrase en français peut être moins bien reconnu.
-- **Noms propres vs mots communs** : les noms (Guillaume, Tauri, Figma) profitent le plus. Les mots déjà bien reconnus par Whisper ne changent guère.
-- **Pas d’alias type « btw → by the way »** : Ghosty envoie une liste de termes pour *biaiser* la reconnaissance, pas des paires remplacement → expansion. Pour une abréviation, ajoute les deux comme entrées séparées si besoin (ex. « btw » et « by the way »).
-- **Données locales** : le dictionnaire est stocké en local (AppData). Pas de partage d’équipe intégré ; utilise Export/Import pour partager le JSON.
+- **Prompt size**: Whisper limits `prompt` length. Many words → only the first are used. Prioritize the most useful terms.
+- **Language**: The dictionary helps most when the transcription language (Settings) matches your voice. An English word in a French sentence may be recognized less well.
+- **Proper nouns vs common words**: Names (e.g. Guillaume, Tauri, Figma) benefit most. Words already well recognized by Whisper change little.
+- **No "btw → by the way" style aliases**: Ghosty sends a list of terms to *bias* recognition, not replacement→expansion pairs. For an abbreviation, add both as separate entries if needed (e.g. "btw" and "by the way").
+- **Local data**: The dictionary is stored locally (AppData). No built-in team sharing; use Export/Import to share the JSON.
 
-## Prochaines étapes
+## Next steps
 
-1. **Ajouter vos termes fréquents** (frameworks, noms d'entreprise, etc.)
-2. **Tester la transcription** avec ces mots
-3. **Exporter et partager** avec votre équipe
-4. **Consulter DICTIONARY-SYSTEM.md** pour les détails techniques
+1. **Add your frequent terms** (frameworks, company names, etc.)
+2. **Test transcription** with these words
+3. **Export and share** with your team
+4. **See DICTIONARY-SYSTEM.md** for technical details
