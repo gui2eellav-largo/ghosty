@@ -491,7 +491,7 @@ export default function Dashboard() {
       <aside className="w-64 border-r border-black/[0.06] dark:border-white/[0.06] flex flex-col bg-white dark:bg-[#0c0c0c] shrink-0">
         <div className="p-4">
           <div className="flex items-center gap-2 mb-6 select-none">
-            <div className="w-2 h-2 bg-red-500 rounded-full shadow-[0_0_10px_rgba(239,68,68,0.4)]" />
+            <img src="/ghosty-logo.png" alt="Ghosty" className="w-7 h-7 object-contain" />
             <span className="text-sm font-black tracking-widest uppercase">{strings.app.name}</span>
           </div>
 

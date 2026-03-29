@@ -222,7 +222,7 @@ export function ModesView({
               <div
                 {...dragHandleProps}
                 className="absolute left-0.5 top-0 bottom-0 flex items-center justify-center w-4 opacity-0 group-hover:opacity-40 hover:opacity-100 cursor-grab active:cursor-grabbing text-muted-foreground"
-                aria-label="Drag to reorder"
+                aria-label={strings.modes.dragToReorder}
               >
                 <GripVertical size={10} strokeWidth={2} />
               </div>
@@ -252,7 +252,7 @@ export function ModesView({
                 <div className="flex items-center gap-1.5">
                   <span className="truncate text-xs">{mode.name}</span>
                   {mode.id === DIRECT_MODE_ID && (
-                    <span title="Your words, light formatting only.">
+                    <span title={strings.modes.directModeTooltip}>
                       <Zap
                         size={10}
                         className="text-amber-500 dark:text-amber-400 flex-shrink-0"
@@ -260,7 +260,7 @@ export function ModesView({
                     </span>
                   )}
                   {!mode.isCustom && (
-                    <span title="Built-in (cannot be deleted)">
+                    <span title={strings.modes.builtInTooltip}>
                       <Lock
                         size={10}
                         className="text-muted-foreground flex-shrink-0"
@@ -273,10 +273,10 @@ export function ModesView({
                     className="p-0.5 rounded hover:bg-black/[0.06] dark:hover:bg-white/[0.06] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                     title={
                       mode.enabled
-                        ? "Visible in widget (click to hide)"
-                        : "Hidden from widget (click to show)"
+                        ? strings.modes.visibleInWidget
+                        : strings.modes.hiddenFromWidget
                     }
-                    aria-label={mode.enabled ? "Hide from widget" : "Show in widget"}
+                    aria-label={mode.enabled ? strings.modes.hideFromWidget : strings.modes.showInWidget}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleToggleModeEnabled(mode);
@@ -309,8 +309,8 @@ export function ModesView({
                     <button
                       type="button"
                       className="p-1 rounded-sm hover:bg-black/[0.06] dark:hover:bg-white/[0.06] text-muted-foreground hover:text-foreground flex items-center justify-center"
-                      title="Duplicate"
-                      aria-label="Duplicate mode"
+                      title={strings.modes.duplicate}
+                      aria-label={strings.modes.duplicateMode}
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.preventDefault();
@@ -331,8 +331,8 @@ export function ModesView({
                     <button
                       type="button"
                       className="p-1 rounded-sm hover:bg-black/[0.06] dark:hover:bg-white/[0.06] text-muted-foreground hover:text-foreground flex items-center justify-center"
-                      title="Actions"
-                      aria-label="Mode actions"
+                      title={strings.modes.actions}
+                      aria-label={strings.modes.modeActions}
                       onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.preventDefault();
@@ -358,7 +358,7 @@ export function ModesView({
                             size={12}
                             className="flex-shrink-0 text-muted-foreground"
                           />
-                          Duplicate
+                          {strings.modes.duplicate}
                         </button>
                         <button
                           type="button"
@@ -372,7 +372,7 @@ export function ModesView({
                             size={12}
                             className="flex-shrink-0 text-muted-foreground"
                           />
-                          Export
+                          {strings.modes.export}
                         </button>
                         <button
                           type="button"
@@ -383,7 +383,7 @@ export function ModesView({
                           }}
                         >
                           <Trash2 size={12} className="flex-shrink-0" />
-                          Delete
+                          {strings.modes.delete}
                         </button>
                       </div>
                     )}
@@ -398,8 +398,8 @@ export function ModesView({
                     e.stopPropagation();
                     handleDeleteMode(mode.id);
                   }}
-                  title="Delete"
-                  aria-label="Confirm delete"
+                  title={strings.modes.delete}
+                  aria-label={strings.modes.confirmDeletion}
                 >
                   <Check size={11} strokeWidth={2.5} />
                 </button>
@@ -410,8 +410,8 @@ export function ModesView({
                     e.stopPropagation();
                     setModeIdToConfirmDelete(null);
                   }}
-                  title="Cancel"
-                  aria-label="Cancel"
+                  title={strings.modes.cancel}
+                  aria-label={strings.modes.cancel}
                 >
                   <X size={11} strokeWidth={2.5} />
                 </button>
@@ -521,8 +521,8 @@ export function ModesView({
                           setEditedMode({ ...editedMode, color: e.target.value })
                         }
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer rounded-full"
-                        title="Color"
-                        aria-label="Color"
+                        title={strings.modes.color}
+                        aria-label={strings.modes.color}
                       />
                     </div>
                     <div className="min-w-0 flex-1 flex flex-col gap-1">
@@ -532,7 +532,7 @@ export function ModesView({
                           setEditedMode({ ...editedMode, name: e.target.value })
                         }
                         className="text-sm font-medium bg-transparent border-0 border-b border-transparent hover:border-border focus:border-foreground/30 focus:outline-none focus:ring-0 py-0 w-full max-w-md text-foreground leading-tight"
-                        placeholder="Mode name"
+                        placeholder={strings.modes.modeNamePlaceholder}
                       />
                       <input
                         value={editedMode.description}
@@ -546,7 +546,7 @@ export function ModesView({
                           uiClasses.bodyText,
                           "bg-transparent border-0 border-b border-transparent hover:border-border focus:outline-none focus:ring-0 w-full py-0 leading-tight"
                         )}
-                        placeholder="Short description"
+                        placeholder={strings.modes.shortDescriptionPlaceholder}
                       />
                     </div>
                   </div>
@@ -556,7 +556,7 @@ export function ModesView({
                       className="flex items-center gap-2 text-xs py-2 text-foreground hover:opacity-80 focus:outline-none focus-visible:ring-0"
                     >
                       <Save size={14} />
-                      Save
+                      {strings.modes.save}
                     </button>
                     <button
                       onClick={() => {
@@ -566,7 +566,7 @@ export function ModesView({
                       className="flex items-center gap-2 text-xs py-2 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-0"
                     >
                       <X size={14} />
-                      Cancel
+                      {strings.modes.cancel}
                     </button>
                   </div>
                 </div>
@@ -644,7 +644,7 @@ export function ModesView({
                                   })
                                 }
                                 className="text-sm font-medium bg-transparent border-0 border-b border-transparent hover:border-border focus:border-foreground/30 focus:outline-none focus:ring-0 py-0 w-full max-w-md text-foreground leading-tight"
-                                placeholder="Mode name"
+                                placeholder={strings.modes.modeNamePlaceholder}
                               />
                             ) : (
                               <h2 className="text-sm font-medium text-foreground leading-tight">
@@ -652,7 +652,7 @@ export function ModesView({
                               </h2>
                             )}
                             {mode.id === DIRECT_MODE_ID && (
-                              <span title="Your words, light formatting only.">
+                              <span title={strings.modes.directModeTooltip}>
                                 <Zap
                                   size={11}
                                   className="text-amber-500 dark:text-amber-400 flex-shrink-0"
@@ -660,7 +660,7 @@ export function ModesView({
                               </span>
                             )}
                             {!mode.isCustom && (
-                              <span title="Built-in (cannot be deleted)">
+                              <span title={strings.modes.builtInTooltip}>
                                 <Lock
                                   size={11}
                                   className="text-muted-foreground flex-shrink-0"
@@ -688,7 +688,7 @@ export function ModesView({
                                 uiClasses.bodyText,
                                 "bg-transparent border-0 border-b border-transparent hover:border-border focus:outline-none focus:ring-0 w-full py-0 leading-tight"
                               )}
-                              placeholder="Short description"
+                              placeholder={strings.modes.shortDescriptionPlaceholder}
                             />
                           ) : (
                             <p
@@ -707,14 +707,14 @@ export function ModesView({
                           <>
                             <IconButton
                               icon={<Copy size={14} />}
-                              aria-label="Duplicate"
+                              aria-label={strings.modes.duplicate}
                               variant="ghost"
                               size="md"
                               onClick={() => handleDuplicateMode(mode)}
                             />
                             <IconButton
                               icon={<Clipboard size={14} />}
-                              aria-label="Export"
+                              aria-label={strings.modes.export}
                               variant="ghost"
                               size="md"
                               onClick={() => handleExportMode(mode)}
@@ -726,7 +726,7 @@ export function ModesView({
                             <>
                               <IconButton
                                 icon={<Check size={12} strokeWidth={2.5} />}
-                                aria-label="Confirm deletion"
+                                aria-label={strings.modes.confirmDeletion}
                                 variant="danger"
                                 size="md"
                                 onClick={() => handleDeleteMode(mode.id)}
@@ -742,7 +742,7 @@ export function ModesView({
                           ) : (
                             <IconButton
                               icon={<Trash2 size={14} />}
-                              aria-label="Delete"
+                              aria-label={strings.modes.delete}
                               variant="danger"
                               size="md"
                               onClick={(e) => {
@@ -786,7 +786,7 @@ export function ModesView({
                     {mode.id !== DIRECT_MODE_ID && (
                       <div className="border-t border-border pt-4">
                         <p className="text-[11px] text-muted-foreground mb-2">
-                          {strings.modes.playground.testMode}
+                          {strings.modes.playground.title}
                         </p>
                         <div className="flex flex-col gap-2">
                           <textarea
@@ -860,7 +860,7 @@ export function ModesView({
           }
           role="button"
           tabIndex={0}
-          aria-label="Close modal"
+          aria-label={strings.modes.cancel}
         >
           {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- dialog content, stopPropagation only */}
           <div
