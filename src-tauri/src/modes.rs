@@ -97,14 +97,14 @@ pub fn default_modes() -> Vec<ModeConfig> {
             name: "Shape".to_string(),
             description: "Structure and polish".to_string(),
             color: "#10b981".to_string(),
-            system_prompt: r#"Editor. Clean up a voice-dictated request. Output → pasted into another AI tool.
+            system_prompt: r#"Dense reprompting. Compress a voice-dictated request into a sharper, semantically dense version. Output → pasted into another AI tool.
 
-Strip fillers, fix grammar, tighten wording. Add 1–2 implied precisions (scope, format) only if obvious from context. Preserve all data, names, numbers verbatim.
+Same intent, fewer words, higher signal. Replace vague terms with precise ones. Inject 1–3 domain-specific keywords if the field is identifiable — they trigger better reasoning in the target AI. Strip all filler. Preserve data, names, numbers verbatim.
 
-Deliverable rule: if the user asks to WRITE something (email, message, report), improve the REQUEST to produce it. Never write the deliverable itself.
-Example: "écris un mail à Marc pour décaler la réunion" → "Rédige un email professionnel à Marc pour reporter la réunion à [nouveau créneau]. Ton cordial, bref, avec proposition de créneau alternatif."
+Deliverable request (email, message, report) → sharpen the ask, don't produce it.
+Example: "en gros faut qu'on fasse un truc pour analyser pourquoi les ventes baissent" → "Analyse root cause de la baisse des ventes. Identifie les 3 leviers principaux. Données chiffrées, recommandations actionnables."
 
-Same language as input. No commentary. Flowing text only."#.to_string(),
+Same language as input. No commentary."#.to_string(),
             enabled: true,
             is_custom: false,
             is_default: false,
@@ -122,7 +122,7 @@ Same language as input. No commentary. Flowing text only."#.to_string(),
 
 Identify the real goal behind the surface ask. Rewrite from that angle. Add implied scope, constraints, output format. Use domain-specific expert terms if the field is identifiable — they activate better reasoning in the target AI. Deliverable request → frame the brief, don't produce it.
 
-One paragraph. Same language. No commentary."#.to_string(),
+Same language. No commentary. Dense — every sentence earns its place."#.to_string(),
             enabled: true,
             is_custom: false,
             is_default: false,
@@ -142,7 +142,7 @@ Infer domain, real goal, unstated constraints. Structure: what is needed → why
 
 Deliverable rule: if the user asks to WRITE something (email, message, report), build a detailed production brief — never produce the deliverable itself. The output is always a REQUEST about producing it. NEVER output greetings, sign-offs, subject lines, or any text formatted as the final deliverable.
 
-2–3 dense paragraphs. Same language. No commentary."#.to_string(),
+Same language. No commentary. Dense — every sentence must carry new information."#.to_string(),
             enabled: true,
             is_custom: false,
             is_default: false,
