@@ -64,6 +64,17 @@
  * Fond transparent pour que seule la barre (pill) soit visible; la fenêtre ne doit pas
  * peindre un bloc opaque (sinon on bloque les clics en dessous).
  */
+
+/* Tokens visuels du widget flottant — modifier ici pour ajuster globalement */
+html.floating-window {
+  --floating-pill-bg: #000000;
+  --floating-pill-bg-processing: rgba(0, 0, 0, 0.9);
+  --floating-pill-border: rgba(255, 255, 255, 0.05);
+  --floating-pill-border-processing: rgba(255, 255, 255, 0.10);
+  --floating-menu-bg: #0a0a0a;
+  --floating-menu-border: rgba(255, 255, 255, 0.07);
+}
+
 html.floating-window,
 html.floating-window body,
 html.floating-window body #app {
@@ -162,24 +173,47 @@ html.floating-window body #app {
 
 @keyframes pulse-success {
   0% {
-    background-color: rgba(0, 0, 0, 0.4);
+    border-color: rgba(52, 211, 153, 0.8);
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.5);
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
   }
   50% {
-    background-color: rgba(52, 211, 153, 0.3);
-    transform: scale(1.05);
-    box-shadow: 0 0 20px 10px rgba(52, 211, 153, 0);
+    border-color: rgba(52, 211, 153, 1);
+    box-shadow: 0 0 12px 4px rgba(52, 211, 153, 0.3);
+    transform: scale(1.03);
   }
   100% {
-    background-color: rgba(0, 0, 0, 0.4);
-    transform: scale(1);
+    border-color: rgba(52, 211, 153, 0);
     box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+    transform: scale(1);
   }
 }
 
 .animate-pulse-success {
   animation: pulse-success 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes clipboard-toast {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(4px);
+  }
+  15% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  85% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-2px);
+  }
+}
+
+.animate-clipboard-toast {
+  animation: clipboard-toast 2s ease-out forwards;
 }
 
 .animate-shimmer {

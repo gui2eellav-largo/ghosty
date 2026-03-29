@@ -40,6 +40,7 @@ struct TranscriptionReadyPayload {
     output: String,
     thoughts: Option<String>,
     mode: Option<String>,
+    pasted: bool,
 }
 
 pub enum AudioCommand {
@@ -289,12 +290,14 @@ async fn run_pipeline(
             output: output.clone(),
             thoughts,
             mode: active_mode.clone(),
+            pasted: false,
         }
     } else {
         TranscriptionReadyPayload {
             output: final_text.clone(),
             thoughts: None,
             mode: active_mode.clone(),
+            pasted: false,
         }
     };
 
@@ -309,17 +312,44 @@ async fn run_pipeline(
             payload.output.clone()
         };
 
+    let mut did_paste = false;
     if let Err(e) = crate::clipboard::copy_to_clipboard(&text_to_copy, &app) {
         eprintln!("Clipboard: {}", e);
     } else {
-        let app_main = app.clone();
+        // Release floating window focus so Cmd+V goes to the user's app
+        let app_for_paste = app.clone();
         let _ = app.run_on_main_thread(move || {
-            if let Err(e) = crate::clipboard::auto_paste(&app_main) {
-                eprintln!("Auto-paste: {}", e);
+            if let Some(w) = app_for_paste.get_webview_window("floating") {
+                let _ = w.set_ignore_cursor_events(true);
+            }
+        });
+        // Give macOS time to restore focus to previous window
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        // Send Cmd+V
+        let app_for_cmd_v = app.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let _ = app.run_on_main_thread(move || {
+            let result = crate::clipboard::auto_paste(&app_for_cmd_v);
+            let _ = tx.send(result.is_ok());
+        });
+        if let Ok(success) = rx.recv_timeout(std::time::Duration::from_millis(500)) {
+            did_paste = success;
+        }
+        if !did_paste {
+            eprintln!("Auto-paste: failed or timed out");
+        }
+        // Re-enable interactivity on floating window after a short delay
+        let app_restore = app.clone();
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let _ = app.run_on_main_thread(move || {
+            if let Some(w) = app_restore.get_webview_window("floating") {
+                let _ = w.set_ignore_cursor_events(false);
             }
         });
     }
-    let _ = app.emit("transcription_ready", payload.clone());
+    let mut payload_with_paste = payload.clone();
+    payload_with_paste.pasted = did_paste;
+    let _ = app.emit("transcription_ready", payload_with_paste);
     if let Some(state) = app.try_state::<crate::LastOutputState>() {
         if let Ok(mut guard) = state.0.lock() {
             *guard = Some(payload.output);

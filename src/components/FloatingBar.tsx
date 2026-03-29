@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils";
 import { designTokens } from "@/lib/design-tokens";
 import { useFloatingWindowBounds, type FloatingLayoutMode } from "@/hooks/useFloatingWindowBounds";
 import { api } from "@/api/tauri";
-import type { Mode, ModeConfig } from "@/types";
+import type { Mode, ModeConfig, WordCandidate } from "@/types";
 import { VoiceButton } from "./ui/voice-button";
+import { CorrectionSuggestion } from "./ui/CorrectionSuggestion";
 
 const fw = designTokens.floatingWidget;
 
@@ -32,6 +33,10 @@ export default function FloatingBar() {
   const [hasApiKey, setHasApiKey] = useState<boolean>(true);
   const [showApiKeyPrompt, setShowApiKeyPrompt] = useState<boolean>(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [correctionCandidates, setCorrectionCandidates] = useState<WordCandidate[]>([]);
+  const [clipboardToast, setClipboardToast] = useState(false);
+  const monitoringIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const monitoringStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadHasApiKey = async () => {
     try {
@@ -111,6 +116,8 @@ export default function FloatingBar() {
     return () => {
       if (leaveTimeoutRef.current) clearTimeout(leaveTimeoutRef.current);
       if (menuCloseTimeoutRef.current) clearTimeout(menuCloseTimeoutRef.current);
+      if (monitoringIntervalRef.current) clearInterval(monitoringIntervalRef.current);
+      if (monitoringStopRef.current) clearTimeout(monitoringStopRef.current);
     };
   }, []);
 
@@ -118,9 +125,41 @@ export default function FloatingBar() {
   useEffect(() => {
     const unlistenStarted = listen("recording_started", () => setVoiceState("recording"));
     const unlistenStopped = listen("recording_stopped", () => setVoiceState("processing"));
-    const unlistenReady = listen("transcription_ready", () => {
+    const unlistenReady = listen<{ pasted?: boolean }>("transcription_ready", (event) => {
       setVoiceState("success");
-      setTimeout(() => setVoiceState("idle"), 1500);
+      // If not pasted (no focused textbox), show clipboard toast
+      if (event.payload && event.payload.pasted === false) {
+        setClipboardToast(true);
+        setTimeout(() => setClipboardToast(false), 2000);
+      }
+      setTimeout(() => {
+        setVoiceState("idle");
+        // Démarrer la surveillance clipboard : détecte automatiquement si l'utilisateur corrige le texte
+        if (monitoringIntervalRef.current) clearInterval(monitoringIntervalRef.current);
+        if (monitoringStopRef.current) clearTimeout(monitoringStopRef.current);
+        setCorrectionCandidates([]);
+        monitoringIntervalRef.current = setInterval(async () => {
+          try {
+            const candidates = await api.correction.analyze();
+            if (candidates.length > 0) {
+              if (monitoringIntervalRef.current) clearInterval(monitoringIntervalRef.current);
+              if (monitoringStopRef.current) clearTimeout(monitoringStopRef.current);
+              monitoringIntervalRef.current = null;
+              monitoringStopRef.current = null;
+              setCorrectionCandidates(candidates);
+              emit("correction-candidates", candidates).catch(console.error);
+            }
+          } catch {
+            // ignore erreurs clipboard
+          }
+        }, 600);
+        // Arrêter après 30s si aucune correction détectée
+        monitoringStopRef.current = setTimeout(() => {
+          if (monitoringIntervalRef.current) clearInterval(monitoringIntervalRef.current);
+          monitoringIntervalRef.current = null;
+          monitoringStopRef.current = null;
+        }, 30_000);
+      }, 1500);
     });
     const unlistenError = listen("transcription_error", () => setVoiceState("idle"));
 
@@ -268,12 +307,13 @@ export default function FloatingBar() {
     if (!isMenuOpen) return;
     const menuEl = menuRef.current;
     if (menuEl) {
+      menuEl.scrollTop = 0;
       const focusables = menuEl.querySelectorAll<HTMLElement>(
         'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
       );
       const first = focusables[0];
       const last = focusables[focusables.length - 1];
-      first?.focus();
+      first?.focus({ preventScroll: true });
 
       const handleMenuKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
@@ -430,8 +470,10 @@ export default function FloatingBar() {
             }}
             className={cn(
               "floating-pill relative z-[10] flex items-center overflow-visible",
-              voiceState === "processing" ? "bg-black/90 border border-white/10" : "bg-black border border-white/5",
-              "hover:bg-black",
+              voiceState === "processing"
+                ? "[background:var(--floating-pill-bg-processing)] border [border-color:var(--floating-pill-border-processing)]"
+                : "[background:var(--floating-pill-bg)] border [border-color:var(--floating-pill-border)]",
+              "hover:[background:var(--floating-pill-bg)]",
               voiceState === "success" && "animate-pulse-success"
             )}
             style={{
@@ -451,7 +493,7 @@ export default function FloatingBar() {
               role="button"
               tabIndex={isHoverOrActive ? 0 : -1}
               onClick={isHoverOrActive ? handleVoicePress : undefined}
-              onKeyDown={isHoverOrActive ? (e) => e.key === "Enter" && handleVoicePress && handleVoicePress() : undefined}
+              onKeyDown={isHoverOrActive ? (e) => e.key === "Enter" && handleVoicePress() : undefined}
               className={isHoverOrActive ? "cursor-pointer" : ""}
               style={{
                 ...(isHoverOrActive ? {} : { position: "absolute", left: 0, top: 0, visibility: "hidden" as const }),
@@ -469,13 +511,14 @@ export default function FloatingBar() {
                 marginLeft: "auto",
               }}
             >
-              <VoiceButton 
+              <VoiceButton
                 state={voiceState}
                 onPress={handleVoicePress}
                 size="icon"
                 variant="ghost"
                 className="h-[16px] w-[48px] border-0 bg-transparent hover:bg-transparent p-0 m-0"
                 waveformClassName="!bg-transparent -translate-y-px"
+                waveformBarColor="rgba(255,255,255,0.9)"
                 waveformUpdateRate={16}
               />
             </div>
@@ -510,6 +553,7 @@ export default function FloatingBar() {
                 isMenuOpen ? "cursor-pointer" : "cursor-ns-resize",
                 "hover:scale-[1.4] active:scale-110",
                 "transition-[transform,box-shadow] duration-200 ease-out",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
                 voiceState === "idle" && !isHoverOrActive && "animate-breathe"
               )}
               style={{
@@ -554,6 +598,33 @@ export default function FloatingBar() {
           </div>
         )}
 
+        {correctionCandidates.length > 0 && !isMenuOpen && (
+          <CorrectionSuggestion
+            candidates={correctionCandidates}
+            onAccept={async (candidate) => {
+              try {
+                await api.dictionary.add({
+                  word: candidate.correction,
+                  type: "Custom",
+                  misspellings: [candidate.misspelling],
+                });
+                emit("dictionary-updated").catch(console.error);
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            onDismiss={() => {}}
+            onDismissAll={() => {
+              setCorrectionCandidates([]);
+              // Si l'utilisateur dismiss, arrêter aussi le monitoring
+              if (monitoringIntervalRef.current) clearInterval(monitoringIntervalRef.current);
+              if (monitoringStopRef.current) clearTimeout(monitoringStopRef.current);
+              monitoringIntervalRef.current = null;
+              monitoringStopRef.current = null;
+            }}
+          />
+        )}
+
         {/* Menu : une seule condition (isMenuOpen || isMenuClosing), entrée en fade-in */}
         {(isMenuOpen || isMenuClosing) && (
           <div
@@ -562,9 +633,9 @@ export default function FloatingBar() {
             tabIndex={0}
             onMouseEnter={cancelLeaveAndKeepHover}
             className={cn(
-              "absolute top-full mt-2 flex flex-col gap-1 py-2.5 px-2",
-              "bg-black/95 border border-white/[0.06] rounded-lg z-50 backdrop-blur-sm",
-              "scrollbar-thin overflow-y-auto overflow-x-hidden",
+              "absolute top-full mt-2 flex flex-col gap-0.5 py-1.5 px-1.5",
+              "[background:var(--floating-menu-bg)] border [border-color:var(--floating-menu-border)] rounded-xl z-50",
+              "overflow-y-auto overflow-x-hidden",
               "floating-menu-transition",
               isMenuClosing ? "floating-menu-closing" : "floating-menu-open floating-menu-enter",
             )}
@@ -573,11 +644,10 @@ export default function FloatingBar() {
               minWidth: 0,
               maxWidth: "100%",
               maxHeight: `min(${fw.menuHeight}px, 60vh)`,
-              boxShadow: "0 2px 12px rgba(0, 0, 0, 0.12)",
+              boxShadow: "none",
               left: "50%",
               transform: "translateX(-50%)",
               pointerEvents: isMenuClosing ? "none" : "auto",
-              scrollbarGutter: "stable",
             }}
           >
             {modes.length === 0 ? (
@@ -589,14 +659,13 @@ export default function FloatingBar() {
                 role="menuitem"
                 onClick={() => handleModeSelect(mode)}
                 className={cn(
-                  "flex items-center gap-2 px-3 py-2 rounded-md text-left",
-                  "text-xs text-white/90 transition-colors duration-200 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                  "hover:bg-white/10",
+                  "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left",
+                  "text-xs text-white/80 transition-colors duration-150",
+                  "hover:bg-white/[0.07]",
                   "floating-menu-enter",
-                  selectedMode === mode.id && "bg-white/10"
+                  selectedMode === mode.id && "bg-white/[0.08]"
                 )}
                 style={{
-                  transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
                   animationDelay: `${i * 28}ms`,
                   animationDuration: "220ms",
                 }}
@@ -613,7 +682,7 @@ export default function FloatingBar() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{mode.name}</div>
-                  <div className="text-[10px] text-white/50 truncate">{mode.description}</div>
+                  <div className="text-[10px] text-white/30 truncate">{mode.description}</div>
                 </div>
               </button>
             )))
@@ -621,6 +690,28 @@ export default function FloatingBar() {
           </div>
         )}
       </div>
+
+      {/* Clipboard-only toast — shown when no textbox was focused */}
+      {clipboardToast && (
+        <div
+          className="absolute z-[50] flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium text-white/90 animate-clipboard-toast"
+          style={{
+            top: `${fw.pillSize + fw.bouncePadding + 6}px`,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.75)",
+            backdropFilter: "blur(8px)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          Copié
+        </div>
+      )}
     </div>
   );
 }
