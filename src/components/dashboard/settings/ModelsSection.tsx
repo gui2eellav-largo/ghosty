@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { cn } from "@/lib/utils";
 import { uiClasses } from "@/lib/design-tokens";
 import { strings } from "@/lib/strings";
 import { SettingsSection } from "@/components/SettingsModal";
@@ -83,19 +84,17 @@ export function ModelsSection({
       title={strings.settings.models.title}
       description={strings.settings.models.description}
     >
-      <div className="space-y-8">
-        <div>
-          <h3 className="text-sm font-semibold text-black dark:text-white mb-1">
+      <div className="space-y-6">
+        {/* Voice to text */}
+        <div className="space-y-3">
+          <p className={cn(uiClasses.sectionLabel)}>
             {strings.settings.models.transcription}
-          </h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            {strings.settings.models.transcriptionDesc}
           </p>
-          <div className="space-y-4">
-            <div>
+          <div className="flex gap-3">
+            <div className="flex-1">
               <label
                 htmlFor="settings-transcription-provider"
-                className="block text-sm font-medium text-black dark:text-white mb-2"
+                className="block text-xs text-muted-foreground mb-1"
               >
                 {strings.settings.models.provider}
               </label>
@@ -103,50 +102,16 @@ export function ModelsSection({
                 id="settings-transcription-provider"
                 value={provider}
                 onChange={handleProviderChange}
-                className={uiClasses.select}
+                className={cn(uiClasses.select, "py-2")}
               >
                 <option value="openai">{strings.settings.models.providerOpenAI}</option>
                 <option value="groq">{strings.settings.models.providerGroq}</option>
               </select>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {provider === "groq"
-                  ? strings.settings.models.providerGroqDesc
-                  : strings.settings.models.providerOpenAIDesc}
-              </p>
             </div>
-            <div>
-              <label
-                htmlFor="settings-transcription-language"
-                className="block text-sm font-medium text-black dark:text-white mb-2"
-              >
-                {strings.settings.models.defaultLanguage}
-              </label>
-              <select
-                id="settings-transcription-language"
-                value={preferences?.transcription.language ?? ""}
-                onChange={handleLanguageChange}
-                className={uiClasses.select}
-              >
-                {(
-                  Object.entries(LANGUAGES) as [
-                    Language,
-                    { label: string; flag: string },
-                  ][]
-                ).map(([key, { flag, label }]) => (
-                  <option key={key} value={key === "auto" ? "" : key}>
-                    {flag ? `${flag} ` : ""}
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {strings.settings.models.languageHint}
-              </p>
-            </div>
-            <div>
+            <div className="flex-1">
               <label
                 htmlFor="settings-transcription-model"
-                className="block text-sm font-medium text-black dark:text-white mb-2"
+                className="block text-xs text-muted-foreground mb-1"
               >
                 {strings.settings.models.model}
               </label>
@@ -154,7 +119,7 @@ export function ModelsSection({
                 id="settings-transcription-model"
                 value={preferences?.transcription.model ?? "whisper-1"}
                 onChange={handleTranscriptionModelChange}
-                className={uiClasses.select}
+                className={cn(uiClasses.select, "py-2")}
               >
                 {provider === "groq" ? (
                   <>
@@ -167,19 +132,47 @@ export function ModelsSection({
               </select>
             </div>
           </div>
+          <div>
+            <label
+              htmlFor="settings-transcription-language"
+              className="block text-xs text-muted-foreground mb-1"
+            >
+              {strings.settings.models.defaultLanguage}
+            </label>
+            <select
+              id="settings-transcription-language"
+              value={preferences?.transcription.language ?? ""}
+              onChange={handleLanguageChange}
+              className={cn(uiClasses.select, "py-2")}
+            >
+              {(
+                Object.entries(LANGUAGES) as [
+                  Language,
+                  { label: string; flag: string },
+                ][]
+              ).map(([key, { flag, label }]) => (
+                <option key={key} value={key === "auto" ? "" : key}>
+                  {flag ? `${flag} ` : ""}
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        <div>
-          <h3 className="text-sm font-semibold text-black dark:text-white mb-1">
+
+        {/* Separator */}
+        <div className="border-t border-black/[0.06] dark:border-white/[0.06]" />
+
+        {/* Text transformation */}
+        <div className="space-y-3">
+          <p className={cn(uiClasses.sectionLabel)}>
             {strings.settings.models.textGeneration}
-          </h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            {strings.settings.models.textGenerationDesc}
           </p>
-          <div className="space-y-4">
-            <div>
+          <div className="flex gap-3">
+            <div className="flex-1">
               <label
                 htmlFor="settings-llm-provider"
-                className="block text-sm font-medium text-black dark:text-white mb-2"
+                className="block text-xs text-muted-foreground mb-1"
               >
                 {strings.settings.models.provider}
               </label>
@@ -187,21 +180,16 @@ export function ModelsSection({
                 id="settings-llm-provider"
                 value={llmProvider}
                 onChange={handleLlmProviderChange}
-                className={uiClasses.select}
+                className={cn(uiClasses.select, "py-2")}
               >
                 <option value="openai">{strings.settings.models.llmProviderOpenAI}</option>
                 <option value="groq">{strings.settings.models.llmProviderGroq}</option>
               </select>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {llmProvider === "groq"
-                  ? strings.settings.models.llmProviderGroqDesc
-                  : strings.settings.models.llmProviderOpenAIDesc}
-              </p>
             </div>
-            <div>
+            <div className="flex-1">
               <label
                 htmlFor="settings-llm-model"
-                className="block text-sm font-medium text-black dark:text-white mb-2"
+                className="block text-xs text-muted-foreground mb-1"
               >
                 {strings.settings.models.model}
               </label>
@@ -209,7 +197,7 @@ export function ModelsSection({
                 id="settings-llm-model"
                 value={preferences?.llm.model ?? "gpt-4o-mini"}
                 onChange={handleLlmModelChange}
-                className={uiClasses.select}
+                className={cn(uiClasses.select, "py-2")}
               >
                 {llmProvider === "groq" ? (
                   <>

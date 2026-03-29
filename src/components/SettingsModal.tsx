@@ -168,7 +168,7 @@ export function SettingsRow({ label, description, htmlFor, children }: SettingsR
           {label}
         </label>
         {description && (
-          <div className="text-xs text-muted-foreground mt-0.5">
+          <div className="text-xs text-muted-foreground/60 mt-0.5">
             {description}
           </div>
         )}

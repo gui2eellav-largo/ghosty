@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { cn } from "@/lib/utils";
 import { uiClasses } from "@/lib/design-tokens";
 import { strings } from "@/lib/strings";
 import { SettingsSection } from "@/components/SettingsModal";
@@ -47,7 +48,7 @@ export function RecordingSection({
         <div>
           <label
             htmlFor="settings-input-device"
-            className="block text-sm font-medium text-black dark:text-white mb-2"
+            className="block text-xs text-muted-foreground mb-1"
           >
             {strings.settings.recording.inputDevice}
           </label>
@@ -55,7 +56,7 @@ export function RecordingSection({
             id="settings-input-device"
             value={preferences?.recording?.inputDeviceId ?? ""}
             onChange={handleInputDeviceChange}
-            className={uiClasses.select}
+            className={cn(uiClasses.select, "py-2")}
           >
             <option value="">{strings.settings.recording.inputDeviceDefault}</option>
             {audioInputDevices.map((d) => (
@@ -64,14 +65,14 @@ export function RecordingSection({
               </option>
             ))}
           </select>
-          <p className="text-xs text-muted-foreground mt-1.5">
+          <p className="text-xs text-muted-foreground/60 mt-1.5">
             {strings.settings.recording.inputDeviceHint}
           </p>
         </div>
         <div>
           <label
             htmlFor="settings-max-duration"
-            className="block text-sm font-medium text-black dark:text-white mb-2"
+            className="block text-xs text-muted-foreground mb-1"
           >
             {strings.settings.recording.maxDuration}
           </label>
@@ -79,7 +80,7 @@ export function RecordingSection({
             id="settings-max-duration"
             value={preferences?.recording.maxDurationMinutes ?? 5}
             onChange={handleMaxDurationChange}
-            className={uiClasses.select}
+            className={cn(uiClasses.select, "py-2")}
           >
             {[1, 2, 5, 10].map((m) => (
               <option key={m} value={m}>

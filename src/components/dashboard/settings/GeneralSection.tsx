@@ -92,36 +92,31 @@ export function GeneralSection({
     <SettingsSection title={strings.settings.general.title} description={strings.settings.general.description}>
       <div className="space-y-0">
         {/* Profile */}
-        <p className={cn(uiClasses.sectionLabel, "mb-3")}>
-          {strings.settings.general.profile}
-        </p>
-        <div className="mb-6">
-          <SettingsRow
-            label={strings.settings.general.displayName}
-            htmlFor="general-display-name"
-          >
-            <div className="flex items-center gap-2">
-              <input
-                id="general-display-name"
-                type="text"
-                value={accountDisplayNameDraft}
-                onChange={(e) => setAccountDisplayNameDraft(e.target.value)}
-                placeholder={strings.settings.general.displayNamePlaceholder}
-                className={cn(uiClasses.input, "w-48")}
-              />
-              <button
-                type="button"
-                onClick={handleSaveDisplayName}
-                disabled={isDisplayNameSaveDisabled}
-                className={cn(uiClasses.buttonPrimary, "text-xs px-3 py-2 disabled:opacity-50")}
-              >
-                {strings.settings.general.save}
-              </button>
-            </div>
-          </SettingsRow>
-        </div>
+        <SettingsRow
+          label={strings.settings.general.displayName}
+          description={strings.settings.general.displayNameHint}
+          htmlFor="general-display-name"
+        >
+          <div className="flex items-center gap-2">
+            <input
+              id="general-display-name"
+              type="text"
+              value={accountDisplayNameDraft}
+              onChange={(e) => setAccountDisplayNameDraft(e.target.value)}
+              placeholder={strings.settings.general.displayNamePlaceholder}
+              className={cn(uiClasses.input, "w-44 py-2")}
+            />
+            <button
+              type="button"
+              onClick={handleSaveDisplayName}
+              disabled={isDisplayNameSaveDisabled}
+              className="text-xs px-2.5 py-1.5 rounded-lg text-muted-foreground hover:text-black dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:opacity-50 disabled:pointer-events-none transition-colors"
+            >
+              {strings.settings.general.save}
+            </button>
+          </div>
+        </SettingsRow>
 
-        {/* App */}
         <SettingsRow
           label={strings.settings.general.launchAtLogin}
           description={strings.settings.general.launchAtLoginDesc}
@@ -143,11 +138,15 @@ export function GeneralSection({
             aria-label={strings.settings.general.autoUpdate}
           />
         </SettingsRow>
-        <SettingsRow label={strings.settings.general.version} description={strings.settings.general.versionDesc}>
-          <span className="text-sm text-muted-foreground tabular-nums">
+
+        <SettingsRow
+          label={strings.settings.general.version}
+        >
+          <span className="text-xs text-muted-foreground tabular-nums">
             {(packageJson as { version?: string }).version ?? "0.1.0"}
           </span>
         </SettingsRow>
+
         <SettingsRow
           label={strings.settings.general.updates}
           description={
@@ -161,7 +160,7 @@ export function GeneralSection({
               type="button"
               disabled={updateStatus === "installing" || updateStatus === "done"}
               onClick={handleInstallUpdate}
-              className={cn(uiClasses.buttonPrimary, "text-xs px-3 py-1.5 disabled:opacity-50")}
+              className={cn(uiClasses.buttonPrimary, "text-xs px-4 py-2 disabled:opacity-50")}
             >
               {updateStatus === "installing"
                 ? strings.settings.general.installing
@@ -174,7 +173,7 @@ export function GeneralSection({
               type="button"
               disabled={updateStatus === "checking"}
               onClick={handleCheckUpdate}
-              className={cn(uiClasses.buttonSecondary, "text-xs px-3 py-1.5 disabled:opacity-50")}
+              className="text-xs px-2.5 py-1.5 rounded-lg text-muted-foreground hover:text-black dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:opacity-50 transition-colors"
             >
               {updateStatus === "checking"
                 ? strings.settings.general.checking
@@ -182,7 +181,7 @@ export function GeneralSection({
             </button>
           )}
         </SettingsRow>
-        <p className="text-xs text-red-600 dark:text-red-400 px-0 py-1" aria-live="polite">
+        <p className="text-xs text-red-600 dark:text-red-400" aria-live="polite">
           {updateError ?? ""}
         </p>
       </div>
