@@ -47,7 +47,7 @@ pub async fn transcribe_bytes(
     let mut attempt = 0;
     let primary_error = loop {
         match transcribe_bytes_internal(&wav_bytes, app).await {
-            Ok(result) => return Ok(result),
+            Ok(result) => return guard_hallucination(result),
             Err(e) if attempt < MAX_RETRIES => {
                 attempt += 1;
                 let backoff = Duration::from_millis(100 * 2u64.pow(attempt));
@@ -71,7 +71,7 @@ pub async fn transcribe_bytes(
         eprintln!("Groq transcription failed, falling back to OpenAI: {}", primary_error);
         let _ = app.emit("provider_fallback", "Groq → OpenAI");
         match transcribe_bytes_openai_fallback(&wav_bytes, app).await {
-            Ok(result) => return Ok(result),
+            Ok(result) => return guard_hallucination(result),
             Err(fallback_err) => {
                 return Err(format!(
                     "Échec transcription après {} tentatives (Groq: {}, OpenAI fallback: {})",
@@ -85,6 +85,15 @@ pub async fn transcribe_bytes(
         "Échec transcription après {} tentatives: {}",
         MAX_RETRIES, primary_error
     ))
+}
+
+/// Single guard point for hallucination filtering — every transcription path goes through here.
+fn guard_hallucination(text: String) -> Result<String, String> {
+    if is_whisper_hallucination(&text) {
+        Err("Transcription vide ou inaudible. Essayez de parler plus fort ou plus longtemps.".to_string())
+    } else {
+        Ok(text)
+    }
 }
 
 /// Fallback transcription using OpenAI when primary provider fails.
