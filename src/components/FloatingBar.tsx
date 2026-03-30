@@ -238,9 +238,8 @@ export default function FloatingBar() {
 
   const layoutMode: FloatingLayoutMode = isMenuOpen || isMenuClosing ? "menu" : "pill";
   const showStreaming = voiceState === "processing" && streamingText.length > 0;
-  // Whether the pill is visually expanded (hovered, recording, menu open, etc.)
   const isExpanded = isHovered || isMenuOpen || isMenuClosing || voiceState !== "idle";
-  useFloatingWindowBounds(layoutMode, positionReady, centerXRef, windowYRef, clipboardToast || !!errorMessage, isExpanded);
+  useFloatingWindowBounds(layoutMode, positionReady, centerXRef, windowYRef, clipboardToast || !!errorMessage);
 
   // Don't steal keyboard focus during recording/processing — the user's app
   // (Notes, browser, etc.) must keep focus so auto-paste (Cmd+V) lands there.

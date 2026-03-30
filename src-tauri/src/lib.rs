@@ -374,13 +374,10 @@ fn set_floating_window_bounds(
         "RUST set_floating_window_bounds ENTER x={} y={} width={} height={}",
         x, y, width, height
     ));
-    // Disable click-through for menu (large width) and expanded pill (>60px).
-    // For idle pill (small width), enable click-through — the cursor-inside
-    // poll handles toggling when user hovers the tiny pill area.
-    if width > 60.0 {
+    // Only disable click-through for menu (large width). For pill mode,
+    // the cursor-inside poll handles click-through toggling dynamically.
+    if width > 100.0 {
         let _ = window.set_ignore_cursor_events(false);
-    } else {
-        let _ = window.set_ignore_cursor_events(true);
     }
     // Pas de hide/show : ça déclenche tauri://blur et le listener ferme le menu immédiatement.
     // Ordre position puis size : sur macOS set_size préserve le centre, donc size puis position
