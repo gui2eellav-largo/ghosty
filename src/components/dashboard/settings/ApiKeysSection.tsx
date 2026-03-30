@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { uiClasses } from "@/lib/design-tokens";
 import { strings } from "@/lib/strings";
 import { SettingsSection } from "@/components/SettingsModal";
-import { Check, Plus, Trash2, Key } from "lucide-react";
+import { Check, Plus, Trash2, Key, AlertCircle } from "lucide-react";
 import type { Preferences, DeepPartial, Language } from "@/types";
 import { LANGUAGES } from "@/types";
 
@@ -35,9 +35,48 @@ export interface ApiKeysSectionProps {
   onSetActiveKey: (keyId: string) => Promise<void>;
   validateApiKeyFormat: (key: string, provider: string) => string | null;
   setValidationError: (e: string | null) => void;
-  // Models props (merged)
   preferences: Preferences | null;
   updatePreferences: (partial: DeepPartial<Preferences>) => Promise<void>;
+}
+
+/** Small inline status showing which key is used for a given provider */
+function KeyStatus({
+  providerName,
+  apiKeys,
+  onAddKey,
+}: {
+  providerName: string;
+  apiKeys: Array<{ id: string; name: string; provider: string; isActive: boolean }>;
+  onAddKey: () => void;
+}) {
+  const keysForProvider = apiKeys.filter((k) => k.provider === providerName);
+  if (keysForProvider.length === 0) {
+    return (
+      <div className="flex items-center gap-1.5 mt-2">
+        <AlertCircle size={12} className="text-amber-500 shrink-0" />
+        <span className="text-xs text-amber-600 dark:text-amber-400">
+          No {PROVIDER_LABELS[providerName] ?? providerName} key configured
+        </span>
+        <button
+          type="button"
+          onClick={onAddKey}
+          className="text-xs text-foreground underline underline-offset-2 hover:no-underline ml-1"
+        >
+          Add key
+        </button>
+      </div>
+    );
+  }
+  const active = keysForProvider.find((k) => k.isActive) ?? keysForProvider[0];
+  if (!active) return null;
+  return (
+    <div className="flex items-center gap-1.5 mt-2">
+      <span className="size-1.5 rounded-full bg-green-500 shrink-0" />
+      <span className="text-xs text-muted-foreground">
+        Using key <span className="font-medium text-foreground">{active.name}</span>
+      </span>
+    </div>
+  );
 }
 
 export function ApiKeysSection({
@@ -123,13 +162,137 @@ export function ApiKeysSection({
     [updatePreferences, preferences?.llm]
   );
 
+  const scrollToKeys = () => {
+    setShowForm(true);
+    // Small delay so the form renders before scrolling
+    setTimeout(() => {
+      document.getElementById("api-key-name")?.focus();
+    }, 100);
+  };
+
   return (
     <SettingsSection
-      title={strings.settings.apiKeys.title}
-      description={strings.settings.apiKeys.description}
+      title="Services"
+      description="Configure your AI providers for transcription and text transformation"
     >
-      <div className="space-y-5">
-        {/* ─── API Keys ─── */}
+      <div className="space-y-6">
+        {/* ─── Voice to text ─── */}
+        <div className="space-y-3 rounded-lg border border-black/[0.06] dark:border-white/[0.06] p-4">
+          <p className={cn(uiClasses.sectionLabel)}>
+            {strings.settings.models.transcription}
+          </p>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label htmlFor="settings-transcription-provider" className="block text-xs text-muted-foreground mb-1">
+                {strings.settings.models.provider}
+              </label>
+              <select
+                id="settings-transcription-provider"
+                value={provider}
+                onChange={handleTranscriptionProviderChange}
+                className={cn(uiClasses.select, "py-2")}
+              >
+                <option value="openai">{strings.settings.models.providerOpenAI}</option>
+                <option value="groq">{strings.settings.models.providerGroq}</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label htmlFor="settings-transcription-model" className="block text-xs text-muted-foreground mb-1">
+                {strings.settings.models.model}
+              </label>
+              <select
+                id="settings-transcription-model"
+                value={preferences?.transcription.model ?? "whisper-1"}
+                onChange={handleTranscriptionModelChange}
+                className={cn(uiClasses.select, "py-2")}
+              >
+                {provider === "groq" ? (
+                  <>
+                    <option value="whisper-large-v3-turbo">Whisper Large v3 Turbo (fastest)</option>
+                    <option value="whisper-large-v3">Whisper Large v3 (most accurate)</option>
+                  </>
+                ) : (
+                  <option value="whisper-1">Whisper 1</option>
+                )}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="settings-transcription-language" className="block text-xs text-muted-foreground mb-1">
+              {strings.settings.models.defaultLanguage}
+            </label>
+            <select
+              id="settings-transcription-language"
+              value={preferences?.transcription.language ?? ""}
+              onChange={handleLanguageChange}
+              className={cn(uiClasses.select, "py-2")}
+            >
+              {(
+                Object.entries(LANGUAGES) as [Language, { label: string; flag: string }][]
+              ).map(([key, { flag, label }]) => (
+                <option key={key} value={key === "auto" ? "" : key}>
+                  {flag ? `${flag} ` : ""}
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <KeyStatus providerName={provider} apiKeys={apiKeys} onAddKey={scrollToKeys} />
+        </div>
+
+        {/* ─── Text transformation ─── */}
+        <div className="space-y-3 rounded-lg border border-black/[0.06] dark:border-white/[0.06] p-4">
+          <p className={cn(uiClasses.sectionLabel)}>
+            {strings.settings.models.textGeneration}
+          </p>
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label htmlFor="settings-llm-provider" className="block text-xs text-muted-foreground mb-1">
+                {strings.settings.models.provider}
+              </label>
+              <select
+                id="settings-llm-provider"
+                value={llmProvider}
+                onChange={handleLlmProviderChange}
+                className={cn(uiClasses.select, "py-2")}
+              >
+                <option value="openai">{strings.settings.models.llmProviderOpenAI}</option>
+                <option value="groq">{strings.settings.models.llmProviderGroq}</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label htmlFor="settings-llm-model" className="block text-xs text-muted-foreground mb-1">
+                {strings.settings.models.model}
+              </label>
+              <select
+                id="settings-llm-model"
+                value={preferences?.llm.model ?? "gpt-4o-mini"}
+                onChange={handleLlmModelChange}
+                className={cn(uiClasses.select, "py-2")}
+              >
+                {llmProvider === "groq" ? (
+                  <>
+                    <option value="llama-3.1-8b-instant">Llama 3.1 8B (fastest)</option>
+                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B (best quality)</option>
+                    <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="gpt-4o-mini">GPT-4o Mini</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                  </>
+                )}
+              </select>
+            </div>
+          </div>
+          <KeyStatus providerName={llmProvider} apiKeys={apiKeys} onAddKey={scrollToKeys} />
+        </div>
+
+        {/* ─── Separator ─── */}
+        <div className="border-t border-black/[0.06] dark:border-white/[0.06]" />
+
+        {/* ─── API Keys management ─── */}
         <div className="space-y-3">
           <p className={cn(uiClasses.sectionLabel)}>API Keys</p>
 
@@ -157,9 +320,6 @@ export function ApiKeysSection({
                   className="py-3 flex items-center justify-between gap-3"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    {k.isActive && (
-                      <span className="size-1.5 rounded-full bg-green-500 shrink-0" />
-                    )}
                     <span className="text-sm font-medium text-black dark:text-white truncate">
                       {k.name}
                     </span>
@@ -217,7 +377,7 @@ export function ApiKeysSection({
             </div>
           )}
 
-          {/* Add key button (when list exists and form is hidden) */}
+          {/* Add key button */}
           {apiKeys.length > 0 && !showForm && (
             <button
               type="button"
@@ -324,123 +484,6 @@ export function ApiKeysSection({
           <p className="text-xs text-muted-foreground/60 text-center pt-1">
             {strings.settings.apiKeys.storedLocally}
           </p>
-        </div>
-
-        {/* ─── Separator ─── */}
-        <div className="border-t border-black/[0.06] dark:border-white/[0.06]" />
-
-        {/* ─── Voice to text ─── */}
-        <div className="space-y-3">
-          <p className={cn(uiClasses.sectionLabel)}>
-            {strings.settings.models.transcription}
-          </p>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label htmlFor="settings-transcription-provider" className="block text-xs text-muted-foreground mb-1">
-                {strings.settings.models.provider}
-              </label>
-              <select
-                id="settings-transcription-provider"
-                value={provider}
-                onChange={handleTranscriptionProviderChange}
-                className={cn(uiClasses.select, "py-2")}
-              >
-                <option value="openai">{strings.settings.models.providerOpenAI}</option>
-                <option value="groq">{strings.settings.models.providerGroq}</option>
-              </select>
-            </div>
-            <div className="flex-1">
-              <label htmlFor="settings-transcription-model" className="block text-xs text-muted-foreground mb-1">
-                {strings.settings.models.model}
-              </label>
-              <select
-                id="settings-transcription-model"
-                value={preferences?.transcription.model ?? "whisper-1"}
-                onChange={handleTranscriptionModelChange}
-                className={cn(uiClasses.select, "py-2")}
-              >
-                {provider === "groq" ? (
-                  <>
-                    <option value="whisper-large-v3-turbo">Whisper Large v3 Turbo (fastest)</option>
-                    <option value="whisper-large-v3">Whisper Large v3 (most accurate)</option>
-                  </>
-                ) : (
-                  <option value="whisper-1">Whisper 1</option>
-                )}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label htmlFor="settings-transcription-language" className="block text-xs text-muted-foreground mb-1">
-              {strings.settings.models.defaultLanguage}
-            </label>
-            <select
-              id="settings-transcription-language"
-              value={preferences?.transcription.language ?? ""}
-              onChange={handleLanguageChange}
-              className={cn(uiClasses.select, "py-2")}
-            >
-              {(
-                Object.entries(LANGUAGES) as [Language, { label: string; flag: string }][]
-              ).map(([key, { flag, label }]) => (
-                <option key={key} value={key === "auto" ? "" : key}>
-                  {flag ? `${flag} ` : ""}
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* ─── Separator ─── */}
-        <div className="border-t border-black/[0.06] dark:border-white/[0.06]" />
-
-        {/* ─── Text transformation ─── */}
-        <div className="space-y-3">
-          <p className={cn(uiClasses.sectionLabel)}>
-            {strings.settings.models.textGeneration}
-          </p>
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label htmlFor="settings-llm-provider" className="block text-xs text-muted-foreground mb-1">
-                {strings.settings.models.provider}
-              </label>
-              <select
-                id="settings-llm-provider"
-                value={llmProvider}
-                onChange={handleLlmProviderChange}
-                className={cn(uiClasses.select, "py-2")}
-              >
-                <option value="openai">{strings.settings.models.llmProviderOpenAI}</option>
-                <option value="groq">{strings.settings.models.llmProviderGroq}</option>
-              </select>
-            </div>
-            <div className="flex-1">
-              <label htmlFor="settings-llm-model" className="block text-xs text-muted-foreground mb-1">
-                {strings.settings.models.model}
-              </label>
-              <select
-                id="settings-llm-model"
-                value={preferences?.llm.model ?? "gpt-4o-mini"}
-                onChange={handleLlmModelChange}
-                className={cn(uiClasses.select, "py-2")}
-              >
-                {llmProvider === "groq" ? (
-                  <>
-                    <option value="llama-3.1-8b-instant">Llama 3.1 8B (fastest)</option>
-                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B (best quality)</option>
-                    <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="gpt-4o-mini">GPT-4o Mini</option>
-                    <option value="gpt-4o">GPT-4o</option>
-                    <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                  </>
-                )}
-              </select>
-            </div>
-          </div>
         </div>
       </div>
     </SettingsSection>

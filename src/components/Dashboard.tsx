@@ -151,10 +151,15 @@ export default function Dashboard() {
   // ---------- Init on mount ----------
   useEffect(() => {
     Promise.all([loadApiKeys(), loadModes(), loadShortcuts(), loadDictionaryEntries()]);
-    // Auto-update check on mount (always — banner shown if update available)
-    api.updater.check().then((info) => {
-      if (info.available) setUpdateInfo(info);
-    }).catch(() => {});
+    // Auto-update check on mount + every 6 hours (app stays open for days)
+    const checkForUpdate = () => {
+      api.updater.check().then((info) => {
+        if (info.available) setUpdateInfo(info);
+      }).catch(() => {});
+    };
+    checkForUpdate();
+    const updateInterval = setInterval(checkForUpdate, 6 * 60 * 60 * 1000);
+    return () => clearInterval(updateInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
@@ -750,7 +755,7 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-0.5">
                   {([
-                    { id: "api" as const, label: strings.settings.apiKeys.title, icon: Key },
+                    { id: "api" as const, label: "Services", icon: Key },
                   ]).map((section) => (
                     <button
                       key={section.id}
