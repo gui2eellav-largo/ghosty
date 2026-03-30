@@ -545,14 +545,24 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                         let _ = std::fs::write("/tmp/ghosty_debug.wav", &wav);
                     }
                 }
+                // Emit audio diagnostics so frontend can show/log them
+                let _ = app.emit("audio_diagnostics", format!(
+                    "duration={:.2}s samples={} rate={} rms={:.6} peak={:.6}",
+                    duration_secs, sample_count, sample_rate, rms, peak
+                ));
+
                 if samples.is_empty() {
                     let _ = app.emit("transcription_error", "aucun audio enregistré");
                     continue;
                 }
+                // Reject recordings too short to contain speech (< 0.3s)
+                if duration_secs < 0.3 {
+                    let _ = app.emit("transcription_error", "Enregistrement trop court.");
+                    continue;
+                }
                 // VAD: Reject near-silence before sending to Whisper (prevents hallucinations)
-                if peak < 0.002 {
-                    #[cfg(debug_assertions)]
-                    eprintln!("[audio] VAD rejected: peak={:.6}, RMS={:.6} — likely silence", peak, rms);
+                // Peak < 0.002 = absolute silence. RMS < 0.003 = background noise only (no speech).
+                if peak < 0.002 || rms < 0.003 {
                     let _ = app.emit("transcription_error", "Audio trop faible ou silence détecté. Parlez plus fort ou plus près du micro.");
                     continue;
                 }

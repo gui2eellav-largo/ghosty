@@ -6,10 +6,22 @@ const MAX_RETRIES: u32 = 3;
 /// Known Whisper hallucination patterns — boilerplate text from training data
 /// that Whisper outputs when audio is too short, silent, or inaudible.
 fn is_whisper_hallucination(text: &str) -> bool {
-    let lower = text.to_lowercase();
+    let trimmed = text.trim();
+
+    // Reject garbage: only punctuation/dots, single characters, or empty
+    if trimmed.is_empty() {
+        return true;
+    }
+    let stripped: String = trimmed.chars().filter(|c| c.is_alphanumeric()).collect();
+    if stripped.len() <= 1 {
+        // "...", "A.", "!!!!", "......................" etc.
+        return true;
+    }
+
+    let lower = trimmed.to_lowercase();
     // Long patterns: match if text contains them
     let hallucinations = [
-        "sous-titres réalisés par",
+        "sous-titres réalisés",
         "sous-titres par",
         "amara.org",
         "subtitles by",
@@ -22,17 +34,20 @@ fn is_whisper_hallucination(text: &str) -> bool {
         "thanks for watching",
         "please subscribe",
         "like and subscribe",
+        "c'est parti",
+        "continue watching",
+        "the end",
     ];
     if hallucinations.iter().any(|h| lower.contains(h)) {
         return true;
     }
     // Short exact-match hallucinations (common single-word outputs on silence)
-    let trimmed = lower.trim().trim_end_matches('.');
+    let trimmed_lower = lower.trim_end_matches('.');
     let short_hallucinations = [
         "merci", "bonjour", "au revoir", "bye", "thanks", "thank you",
         "oui", "non", "ok", "hello", "hi",
     ];
-    short_hallucinations.iter().any(|h| trimmed == *h)
+    short_hallucinations.iter().any(|h| trimmed_lower == *h)
 }
 
 /// Transcription async à partir du WAV en mémoire. Retries avec backoff.
@@ -392,18 +407,35 @@ mod tests {
     // ── Edge cases ──────────────────────────────────────────────────
 
     #[test]
-    fn test_empty_text_not_hallucination() {
-        assert!(!is_whisper_hallucination(""));
+    fn test_empty_text_is_hallucination() {
+        assert!(is_whisper_hallucination(""));
     }
 
     #[test]
-    fn test_whitespace_only_not_hallucination() {
-        assert!(!is_whisper_hallucination("   "));
+    fn test_whitespace_only_is_hallucination() {
+        assert!(is_whisper_hallucination("   "));
     }
 
     #[test]
-    fn test_single_period_not_hallucination() {
-        assert!(!is_whisper_hallucination("."));
+    fn test_single_period_is_hallucination() {
+        assert!(is_whisper_hallucination("."));
+    }
+
+    #[test]
+    fn test_dots_garbage_is_hallucination() {
+        assert!(is_whisper_hallucination("..."));
+        assert!(is_whisper_hallucination("......................"));
+    }
+
+    #[test]
+    fn test_single_char_is_hallucination() {
+        assert!(is_whisper_hallucination("A."));
+        assert!(is_whisper_hallucination("a"));
+    }
+
+    #[test]
+    fn test_cest_parti_is_hallucination() {
+        assert!(is_whisper_hallucination("C'est parti."));
     }
 
     // ── validate_base_url ──────────────────────────────────────────
