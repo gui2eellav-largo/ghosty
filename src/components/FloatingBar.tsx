@@ -15,6 +15,7 @@ const fw = designTokens.floatingWidget;
 
 export default function FloatingBar() {
   const windowRef = useRef(getCurrentWindow());
+  const [onboardingDone, setOnboardingDone] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const dotRef = useRef<HTMLDivElement>(null);
   const pillRef = useRef<HTMLDivElement>(null);
@@ -71,10 +72,30 @@ export default function FloatingBar() {
     }
   };
 
+  // Hide floating window until onboarding is complete
   useEffect(() => {
+    Promise.all([api.onboarding.isDone(), api.apiKeys.hasKey()])
+      .then(([done, hasKey]) => {
+        if (done || hasKey) {
+          setOnboardingDone(true);
+        } else {
+          // Hide window during onboarding — listen for when it completes
+          windowRef.current.hide().catch(() => {});
+        }
+      })
+      .catch(() => setOnboardingDone(true));
+    const unlisten = listen("onboarding-complete", () => {
+      setOnboardingDone(true);
+      windowRef.current.show().catch(() => {});
+    });
+    return () => { unlisten.then(u => { try { u(); } catch {} }).catch(() => {}); };
+  }, []);
+
+  useEffect(() => {
+    if (!onboardingDone) return;
     loadModes();
     loadHasApiKey();
-  }, []);
+  }, [onboardingDone]);
 
   useEffect(() => {
     const unlisten = listen("modes-updated", () => loadModes());

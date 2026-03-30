@@ -164,12 +164,15 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
       return;
     }
 
-    setStatus("validating");
     try {
       setStatus("testing");
       await invoke("test_openai_key", { key: trimmed, provider });
       setStatus("saving");
       await api.apiKeys.add({ name: "Default", provider, key: trimmed });
+      // If user chose Groq, update transcription provider to match
+      if (provider === "groq") {
+        await api.preferences.update({ transcription: { provider: "groq", model: "whisper-large-v3-turbo" } });
+      }
       setStatus("success");
       setTimeout(() => onNext(), 900);
     } catch (e) {
@@ -207,7 +210,7 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
       </div>
 
       {provider === "groq" && (
-        <p className="text-xs text-white/30 mb-4 max-w-[320px]">
+        <p className="text-xs text-white/50 mb-4 max-w-[320px]">
           {strings.onboarding.apiKey.groqDescription}
         </p>
       )}
@@ -245,7 +248,7 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
 
       {/* Cost transparency */}
       {provider === "openai" && (
-        <p className="text-xs text-white/25 mb-2 max-w-[340px] leading-relaxed">
+        <p className="text-xs text-white/50 mb-2 max-w-[340px] leading-relaxed">
           {strings.onboarding.apiKey.costNote}
         </p>
       )}
@@ -255,7 +258,7 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
           href={getApiKeyUrl}
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors"
+          className="flex items-center gap-1 text-xs text-white/50 hover:text-white/70 transition-colors"
         >
           <ExternalLink className="w-3 h-3" />
           {getApiKeyLabel}
@@ -265,7 +268,7 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
             href="https://openai.com/pricing"
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-white/30 hover:text-white/60 transition-colors"
+            className="text-xs text-white/50 hover:text-white/70 transition-colors"
           >
             {strings.onboarding.apiKey.viewPricing}
           </a>
@@ -284,8 +287,7 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
               : "bg-white text-black hover:bg-white/90 disabled:opacity-50"
           )}
         >
-          {status === "validating" && strings.onboarding.apiKey.validating}
-          {status === "testing" && strings.onboarding.apiKey.testingKey}
+          {(status === "validating" || status === "testing") && strings.onboarding.apiKey.testingKey}
           {status === "saving" && strings.onboarding.apiKey.saving}
           {status === "success" && <span className="flex items-center justify-center gap-1.5"><Check className="w-4 h-4" /> {strings.onboarding.apiKey.keySaved}</span>}
           {(status === "idle" || status === "error") && strings.onboarding.apiKey.saveAndContinue}
@@ -307,14 +309,15 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
 function ReadyStep({ onComplete }: { onComplete: () => void }) {
   return (
     <>
-      <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-8">
-        <Check className="w-8 h-8 text-green-400" />
+      <div className="w-20 h-20 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-8 animate-check-pop">
+        <Check className="w-10 h-10 text-green-400" />
       </div>
-      <h2 className="text-3xl font-semibold text-white mb-3">{strings.onboarding.ready.title}</h2>
-      <p className="text-sm text-white/40 mb-8 max-w-[320px] leading-relaxed">
-        Hold <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono text-xs">Ctrl</kbd>{" "}
-        <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono text-xs">Shift</kbd>{" "}
-        <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono text-xs">Space</kbd>{" "}
+      <h2 className="text-3xl font-semibold text-white mb-2">{strings.onboarding.ready.title}</h2>
+      <p className="text-sm text-white/60 mb-8 max-w-[340px] leading-relaxed">
+        Hold{" "}
+        <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/20 text-white/80 font-mono text-xs">Ctrl</kbd>{" "}
+        <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/20 text-white/80 font-mono text-xs">Shift</kbd>{" "}
+        <kbd className="px-1.5 py-0.5 rounded bg-white/15 border border-white/20 text-white/80 font-mono text-xs">Space</kbd>{" "}
         {strings.onboarding.ready.description}
       </p>
       <button

@@ -356,11 +356,6 @@ export const HomeView = React.memo(function HomeView({
               )}
           </div>
 
-          {transcriptions.length === 0 && (
-            <p className="text-xs text-muted-foreground/50 leading-relaxed mb-4 max-w-md">
-              {strings.home.modeHintDirect}, {strings.home.modeHintShape}, {strings.home.modeHintReframe}, {strings.home.modeHintBuild}
-            </p>
-          )}
 
           <div className="h-20 bg-black/[0.02] dark:bg-white/[0.02] rounded-lg flex items-center px-6">
             <LiveWaveform

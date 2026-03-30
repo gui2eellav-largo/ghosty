@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { getWindowLabel } from "@/lib/tauri-window";
+import { emit } from "@tauri-apps/api/event";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import FloatingBar from "./components/FloatingBar";
 import Dashboard from "./components/Dashboard";
@@ -26,6 +27,7 @@ export default function App() {
   const handleOnboardingComplete = async () => {
     try { await api.onboarding.markDone(); } catch { /* non-blocking */ }
     setOnboardingState("done");
+    emit("onboarding-complete").catch(() => {});
   };
 
   if (windowLabel === "floating") {
