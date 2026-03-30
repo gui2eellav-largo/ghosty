@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, Sparkles, ClipboardPaste, Eye, EyeOff, ExternalLink, Check, X } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { cn } from "@/lib/utils";
@@ -68,6 +68,28 @@ export function Onboarding({ onComplete }: OnboardingProps) {
 // ─── Step 1: Welcome ────────────────────────────────────────────────────────
 
 function WelcomeStep({ onNext }: { onNext: () => void }) {
+  const [name, setName] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  const handleNext = async () => {
+    const trimmed = name.trim();
+    if (trimmed) {
+      try {
+        const current = await api.preferences.get();
+        await api.preferences.update({
+          general: { ...current?.general, displayName: trimmed },
+        });
+      } catch {
+        // Non-blocking — continue onboarding even if save fails
+      }
+    }
+    onNext();
+  };
+
   return (
     <>
       <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-8">
@@ -79,12 +101,21 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
         <Mic className="w-8 h-8 text-orange-400 hidden" />
       </div>
       <h1 className="text-3xl font-semibold text-white mb-3">{strings.onboarding.welcome.title}</h1>
-      <p className="text-sm text-white/50 leading-relaxed mb-10 max-w-[340px]">
+      <p className="text-sm text-white/50 leading-relaxed mb-8 max-w-[340px]">
         {strings.onboarding.welcome.description}
       </p>
+      <input
+        ref={inputRef}
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && handleNext()}
+        placeholder="Your name"
+        className="w-full max-w-[280px] px-4 py-3 rounded-xl bg-white/[0.05] border border-white/10 focus:border-white/30 text-sm text-white placeholder:text-white/20 outline-none transition-colors text-center mb-8"
+      />
       <button
         type="button"
-        onClick={onNext}
+        onClick={handleNext}
         className="px-8 py-3 bg-white text-black rounded-xl font-semibold text-sm hover:bg-white/90 transition-colors"
       >
         {strings.onboarding.welcome.getStarted}
