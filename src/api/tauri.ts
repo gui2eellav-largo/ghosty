@@ -93,7 +93,7 @@ export const tauriApi = {
   },
 
   apiKeys: {
-    getAll: (): Promise<Array<[string, string, string, boolean]>> =>
+    getAll: (): Promise<Array<[string, string, string, boolean, string]>> =>
       invoke("get_all_api_keys"),
     hasKey: (): Promise<boolean> => invoke("has_openai_key"),
     test: (key: string, provider?: string): Promise<void> => invoke("test_openai_key", { key, provider }),

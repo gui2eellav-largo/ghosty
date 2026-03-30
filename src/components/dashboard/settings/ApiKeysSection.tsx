@@ -14,7 +14,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 export interface ApiKeysSectionProps {
-  apiKeys: Array<{ id: string; name: string; provider: string; isActive: boolean }>;
+  apiKeys: Array<{ id: string; name: string; provider: string; isActive: boolean; preview: string }>;
   apiKey: string;
   keyName: string;
   setKeyName: (v: string) => void;
@@ -46,7 +46,7 @@ function KeyStatus({
   onAddKey,
 }: {
   providerName: string;
-  apiKeys: Array<{ id: string; name: string; provider: string; isActive: boolean }>;
+  apiKeys: Array<{ id: string; name: string; provider: string; isActive: boolean; preview: string }>;
   onAddKey: () => void;
 }) {
   const keysForProvider = apiKeys.filter((k) => k.provider === providerName);
@@ -74,6 +74,7 @@ function KeyStatus({
       <span className="size-1.5 rounded-full bg-green-500 shrink-0" />
       <span className="text-xs text-muted-foreground">
         Using key <span className="font-medium text-foreground">{active.name}</span>
+        <span className="text-muted-foreground/50 ml-1 font-mono text-[10px]">({active.preview})</span>
       </span>
     </div>
   );
@@ -325,6 +326,9 @@ export function ApiKeysSection({
                     </span>
                     <span className="text-xs text-muted-foreground shrink-0">
                       {PROVIDER_LABELS[k.provider] ?? k.provider}
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0">
+                      {k.preview}
                     </span>
                   </div>
 

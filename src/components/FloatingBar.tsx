@@ -97,6 +97,12 @@ export default function FloatingBar() {
     loadHasApiKey();
   }, [onboardingDone]);
 
+  // Re-check API keys periodically (user may add keys in Settings while widget is open)
+  useEffect(() => {
+    const id = setInterval(loadHasApiKey, 5000);
+    return () => clearInterval(id);
+  }, []);
+
   useEffect(() => {
     const unlisten = listen("modes-updated", () => loadModes());
     return () => {

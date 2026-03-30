@@ -375,27 +375,33 @@ pub fn set_active_key(_key_id: String) -> Result<(), String> {
     Err("Multi-keys disponible uniquement sur macOS".to_string())
 }
 
-/// Liste toutes les clés (sans les valeurs sensibles)
+/// Liste toutes les clés (avec aperçu tronqué pour sécurité)
 #[cfg(target_os = "macos")]
-pub fn get_all_keys() -> Result<Vec<(String, String, String, bool)>, String> {
+pub fn get_all_keys() -> Result<Vec<(String, String, String, bool, String)>, String> {
     let config = get_keys_config()?;
 
     Ok(config
         .keys
         .iter()
         .map(|k| {
+            let preview = if k.key.len() > 10 {
+                format!("{}...{}", &k.key[..8], &k.key[k.key.len()-4..])
+            } else {
+                "••••••••".to_string()
+            };
             (
                 k.id.clone(),
                 k.name.clone(),
                 k.provider.clone(),
                 k.id == config.active_key_id,
+                preview,
             )
         })
         .collect())
 }
 
 #[cfg(not(target_os = "macos"))]
-pub fn get_all_keys() -> Result<Vec<(String, String, String, bool)>, String> {
+pub fn get_all_keys() -> Result<Vec<(String, String, String, bool, String)>, String> {
     Err("Multi-keys disponible uniquement sur macOS".to_string())
 }
 

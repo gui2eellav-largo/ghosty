@@ -13,7 +13,7 @@ export function useApiKeys() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [, setIsEditingKey] = useState<boolean>(false);
   const [apiKeys, setApiKeys] = useState<
-    Array<{ id: string; name: string; provider: string; isActive: boolean }>
+    Array<{ id: string; name: string; provider: string; isActive: boolean; preview: string }>
   >([]);
   const [keyName, setKeyName] = useState<string>("");
   const [keyProvider, setKeyProvider] = useState<string>("openai");
@@ -23,11 +23,12 @@ export function useApiKeys() {
     try {
       const keys = await api.apiKeys.getAll();
       setApiKeys(
-        keys.map(([id, name, provider, isActive]) => ({
+        keys.map(([id, name, provider, isActive, preview]) => ({
           id,
           name,
           provider,
           isActive,
+          preview,
         }))
       );
       setHasApiKey(keys.length > 0);

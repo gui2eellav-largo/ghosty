@@ -594,7 +594,7 @@ fn set_active_api_key(key_id: String) -> Result<(), errors::ApiKeyError> {
 }
 
 #[tauri::command]
-fn get_all_api_keys() -> Result<Vec<(String, String, String, bool)>, errors::ApiKeyError> {
+fn get_all_api_keys() -> Result<Vec<(String, String, String, bool, String)>, errors::ApiKeyError> {
     secrets::get_all_keys().map_err(|s| errors::parse_api_key_error(&s))
 }
 
