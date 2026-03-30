@@ -40,7 +40,10 @@ export function useFloatingWindowBounds(
 
     // Pill mode: keep constant width to avoid position shifts on hover/unhover.
     // Click-through is handled by the Rust cursor-inside poll instead.
-    const w = fw.expandedWidth + 2 * fw.bouncePadding;
+    const pillW = fw.expandedWidth + 2 * fw.bouncePadding;
+    // When a toast is visible, widen window symmetrically around the pill center
+    // so error/clipboard text isn't clipped by the window bounds.
+    const w = showToast ? 200 : pillW;
     const toastExtra = showToast ? 28 : 0;
     const h = fw.pillSize + 2 * fw.bouncePadding + toastExtra;
     const x = Math.round(centerX - w / 2);

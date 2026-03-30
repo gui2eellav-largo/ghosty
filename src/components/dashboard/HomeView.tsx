@@ -250,9 +250,7 @@ export const HomeView = React.memo(function HomeView({
             <span className="flex items-center gap-1.5">
               <Mic size={14} className="text-blue-500" />{" "}
               {(() => {
-                const words = usageStats
-                  ? Math.round((usageStats.tokens_output || 0) / 4)
-                  : 0;
+                const words = usageStats?.words_generated ?? 0;
                 return words >= 1000
                   ? `${(words / 1000).toFixed(1)}K ${strings.home.words}`
                   : `${words} ${strings.home.words}`;

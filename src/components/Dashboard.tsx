@@ -90,8 +90,6 @@ export default function Dashboard() {
     setAudioInputDevices,
     servicesInstalled,
     setServicesInstalled,
-    accountDisplayNameDraft,
-    setAccountDisplayNameDraft,
     correctionNotifications,
     setCorrectionNotifications,
     updateInfo,
@@ -386,12 +384,6 @@ export default function Dashboard() {
   }, [isSettingsModalOpen, loadUsageStats, loadPreferences]);
 
   useEffect(() => {
-    if (activeSettingsSection === "account") {
-      setAccountDisplayNameDraft(preferences?.general?.displayName ?? "");
-    }
-  }, [activeSettingsSection, preferences?.general?.displayName, setAccountDisplayNameDraft]);
-
-  useEffect(() => {
     if (!isSettingsModalOpen || activeSettingsSection !== "recording") return;
     let cancelled = false;
     api.audio
@@ -477,11 +469,14 @@ export default function Dashboard() {
     setIsProfilePopoverOpen(false);
   }, []);
 
-  const handleManageAccount = useCallback(() => {
-    setIsSettingsModalOpen(true);
-    setActiveSettingsSection("account");
-    setIsProfilePopoverOpen(false);
-  }, []);
+  const handleSaveDisplayName = useCallback(async (name: string) => {
+    await updatePreferences({
+      general: {
+        ...preferences?.general,
+        displayName: name || undefined,
+      },
+    });
+  }, [updatePreferences, preferences?.general]);
 
   const handleCloseSettingsModal = useCallback(() => {
     setIsSettingsModalOpen(false);
@@ -613,9 +608,9 @@ export default function Dashboard() {
               onClose={handleCloseProfilePopover}
               displayName={preferences?.general?.displayName ?? ""}
               wordsGenerated={
-                usageStats ? Math.round((usageStats.tokens_output || 0) / 4) : 0
+                usageStats?.words_generated ?? 0
               }
-              onManageAccount={handleManageAccount}
+              onSaveDisplayName={handleSaveDisplayName}
             />
           </div>
         </div>
@@ -813,8 +808,6 @@ export default function Dashboard() {
                 setUpdateStatus={setUpdateStatus}
                 updateError={updateError}
                 setUpdateError={setUpdateError}
-                accountDisplayNameDraft={accountDisplayNameDraft}
-                setAccountDisplayNameDraft={setAccountDisplayNameDraft}
               />
             )}
             {activeSettingsSection === "system" && (

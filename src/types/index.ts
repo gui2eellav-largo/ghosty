@@ -67,6 +67,7 @@ export interface UsageStats {
   llm_requests: number;
   tokens_input: number;
   tokens_output: number;
+  words_generated: number;
 }
 
 export interface Preferences {

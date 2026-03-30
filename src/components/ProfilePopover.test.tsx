@@ -4,11 +4,11 @@ import { ProfilePopover } from "./ProfilePopover";
 
 describe("ProfilePopover", () => {
   const onClose = vi.fn();
-  const onManageAccount = vi.fn();
+  const onSaveDisplayName = vi.fn();
 
   beforeEach(() => {
     onClose.mockReset();
-    onManageAccount.mockReset();
+    onSaveDisplayName.mockReset();
   });
 
   it("should not render when isOpen is false", () => {
@@ -18,7 +18,7 @@ describe("ProfilePopover", () => {
         onClose={onClose}
         displayName="John Doe"
         wordsGenerated={100}
-        onManageAccount={onManageAccount}
+        onSaveDisplayName={onSaveDisplayName}
       />
     );
     expect(container.innerHTML).toBe("");
@@ -31,7 +31,7 @@ describe("ProfilePopover", () => {
         onClose={onClose}
         displayName="John Doe"
         wordsGenerated={100}
-        onManageAccount={onManageAccount}
+        onSaveDisplayName={onSaveDisplayName}
       />
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe("ProfilePopover", () => {
         onClose={onClose}
         displayName="John Doe"
         wordsGenerated={100}
-        onManageAccount={onManageAccount}
+        onSaveDisplayName={onSaveDisplayName}
       />
     );
     expect(screen.getByText("John Doe")).toBeInTheDocument();
@@ -57,7 +57,7 @@ describe("ProfilePopover", () => {
         onClose={onClose}
         displayName="John Doe"
         wordsGenerated={100}
-        onManageAccount={onManageAccount}
+        onSaveDisplayName={onSaveDisplayName}
       />
     );
     expect(screen.getByText("JD")).toBeInTheDocument();
@@ -70,7 +70,7 @@ describe("ProfilePopover", () => {
         onClose={onClose}
         displayName=""
         wordsGenerated={50}
-        onManageAccount={onManageAccount}
+        onSaveDisplayName={onSaveDisplayName}
       />
     );
     expect(screen.getByText("Guest")).toBeInTheDocument();
@@ -83,7 +83,7 @@ describe("ProfilePopover", () => {
         onClose={onClose}
         displayName="Jane"
         wordsGenerated={500}
-        onManageAccount={onManageAccount}
+        onSaveDisplayName={onSaveDisplayName}
       />
     );
     expect(screen.getByText("500 words generated")).toBeInTheDocument();
@@ -96,26 +96,10 @@ describe("ProfilePopover", () => {
         onClose={onClose}
         displayName="Jane"
         wordsGenerated={2500}
-        onManageAccount={onManageAccount}
+        onSaveDisplayName={onSaveDisplayName}
       />
     );
     expect(screen.getByText("2.5K words generated")).toBeInTheDocument();
-  });
-
-  it("should call onManageAccount and onClose when clicking Manage account", () => {
-    render(
-      <ProfilePopover
-        isOpen={true}
-        onClose={onClose}
-        displayName="Jane"
-        wordsGenerated={100}
-        onManageAccount={onManageAccount}
-      />
-    );
-
-    fireEvent.click(screen.getByText("Manage account"));
-    expect(onManageAccount).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
   });
 
   it("should close when Escape key is pressed", () => {
@@ -125,7 +109,7 @@ describe("ProfilePopover", () => {
         onClose={onClose}
         displayName="Jane"
         wordsGenerated={100}
-        onManageAccount={onManageAccount}
+        onSaveDisplayName={onSaveDisplayName}
       />
     );
 

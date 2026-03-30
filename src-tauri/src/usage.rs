@@ -13,6 +13,8 @@ pub struct UsageStats {
     pub tokens_input: u64,
     #[serde(default)]
     pub tokens_output: u64,
+    #[serde(default)]
+    pub words_generated: u64,
 }
 
 impl UsageStats {
@@ -66,6 +68,14 @@ pub fn increment_llm(app: &tauri::AppHandle, tokens_input: u64, tokens_output: u
     }
 }
 
+pub fn increment_words(app: &tauri::AppHandle, words: u64) {
+    if let Ok(path) = usage_path(app) {
+        let mut stats = load_from_file(&path);
+        stats.words_generated += words;
+        save_to_file(&path, &stats);
+    }
+}
+
 pub fn get_usage_stats(app: &tauri::AppHandle) -> UsageStats {
     usage_path(app)
         .map(|p| load_from_file(&p))
@@ -112,6 +122,7 @@ mod tests {
             llm_requests: 5,
             tokens_input: 1_000_000,
             tokens_output: 1_000_000,
+            ..Default::default()
         };
         let cost = stats.estimated_cost_usd();
         // Input: 1M * 0.15 / 1M = 0.15
@@ -127,6 +138,7 @@ mod tests {
             llm_requests: 0,
             tokens_input: 0,
             tokens_output: 0,
+            ..Default::default()
         };
         assert!(stats.estimated_cost_usd() >= 0.0);
     }
@@ -140,6 +152,7 @@ mod tests {
             llm_requests: 17,
             tokens_input: 50000,
             tokens_output: 30000,
+            ..Default::default()
         };
         let json = serde_json::to_string(&stats).unwrap();
         let loaded: UsageStats = serde_json::from_str(&json).unwrap();
@@ -179,6 +192,7 @@ mod tests {
             llm_requests: 50,
             tokens_input: 1000,
             tokens_output: 2000,
+            ..Default::default()
         };
         save_to_file(&path, &stats);
         let loaded = load_from_file(&path);
@@ -233,6 +247,7 @@ mod tests {
             llm_requests: 25,
             tokens_input: 10000,
             tokens_output: 5000,
+            ..Default::default()
         };
         save_to_file(&path, &stats);
 

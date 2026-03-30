@@ -376,7 +376,7 @@ fn set_floating_window_bounds(
     ));
     // Only disable click-through for menu (large width). For pill mode,
     // the cursor-inside poll handles click-through toggling dynamically.
-    if width > 100.0 {
+    if width > 220.0 {
         let _ = window.set_ignore_cursor_events(false);
     }
     // Pas de hide/show : ça déclenche tauri://blur et le listener ferme le menu immédiatement.
@@ -393,7 +393,7 @@ fn set_floating_window_bounds(
     #[cfg(debug_assertions)]
     write_menu_bounds_log("RUST after set_size");
     // Focus uniquement à l'agrandissement (menu).
-    if width > 100.0 {
+    if width > 220.0 {
         let _ = window.set_focus();
     }
     Ok(())

@@ -41,6 +41,7 @@ export function useAppState() {
         llm_requests: 0,
         tokens_input: 0,
         tokens_output: 0,
+        words_generated: 0,
       });
     } catch {
       await loadUsageStats();

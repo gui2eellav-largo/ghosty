@@ -411,6 +411,10 @@ async fn run_pipeline(
         }
     };
 
+    // Count words in the final output for usage stats
+    let output_word_count = payload.output.split_whitespace().count() as u64;
+    crate::usage::increment_words(&app, output_word_count);
+
     let prefs = crate::preferences::get_preferences(&app).unwrap_or_default();
     let text_to_copy =
         if prefs.behavior.paste_input_and_output && active_mode.as_deref() != Some("light") {

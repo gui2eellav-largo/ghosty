@@ -16,8 +16,6 @@ export interface GeneralSectionProps {
   setUpdateStatus: (status: "idle" | "checking" | "installing" | "done" | "error") => void;
   updateError: string | null;
   setUpdateError: (error: string | null) => void;
-  accountDisplayNameDraft: string;
-  setAccountDisplayNameDraft: (v: string) => void;
 }
 
 export function GeneralSection({
@@ -29,8 +27,6 @@ export function GeneralSection({
   setUpdateStatus,
   updateError,
   setUpdateError,
-  accountDisplayNameDraft,
-  setAccountDisplayNameDraft,
 }: GeneralSectionProps) {
   const handleLaunchAtLoginChange = useCallback(
     async (checked: boolean) => {
@@ -75,48 +71,9 @@ export function GeneralSection({
     }
   }, [setUpdateStatus, setUpdateError, setUpdateInfo]);
 
-  const handleSaveDisplayName = useCallback(async () => {
-    await updatePreferences({
-      general: {
-        ...preferences?.general,
-        displayName: accountDisplayNameDraft.trim() || undefined,
-      },
-    });
-  }, [updatePreferences, preferences?.general, accountDisplayNameDraft]);
-
-  const isDisplayNameSaveDisabled =
-    (accountDisplayNameDraft.trim() || "") ===
-    (preferences?.general?.displayName ?? "");
-
   return (
     <SettingsSection title={strings.settings.general.title} description={strings.settings.general.description}>
       <div className="space-y-0">
-        {/* Profile */}
-        <SettingsRow
-          label={strings.settings.general.displayName}
-          description={strings.settings.general.displayNameHint}
-          htmlFor="general-display-name"
-        >
-          <div className="flex items-center gap-2">
-            <input
-              id="general-display-name"
-              type="text"
-              value={accountDisplayNameDraft}
-              onChange={(e) => setAccountDisplayNameDraft(e.target.value)}
-              placeholder={strings.settings.general.displayNamePlaceholder}
-              className={cn(uiClasses.input, "w-44 py-2")}
-            />
-            <button
-              type="button"
-              onClick={handleSaveDisplayName}
-              disabled={isDisplayNameSaveDisabled}
-              className="text-xs px-2.5 py-1.5 rounded-lg text-muted-foreground hover:text-black dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] disabled:opacity-50 disabled:pointer-events-none transition-colors"
-            >
-              {strings.settings.general.save}
-            </button>
-          </div>
-        </SettingsRow>
-
         <SettingsRow
           label={strings.settings.general.launchAtLogin}
           description={strings.settings.general.launchAtLoginDesc}

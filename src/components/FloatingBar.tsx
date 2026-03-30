@@ -866,6 +866,7 @@ export default function FloatingBar() {
           style={{
             top: `${fw.pillSize + fw.bouncePadding + 6}px`,
             left: "50%",
+            transform: "translateX(-50%)",
             background: "rgba(0,0,0,0.75)",
             backdropFilter: "blur(8px)",
             border: "1px solid rgba(255,255,255,0.1)",
