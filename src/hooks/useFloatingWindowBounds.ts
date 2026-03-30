@@ -38,7 +38,7 @@ export function useFloatingWindowBounds(
       return;
     }
 
-    const w = Math.max(fw.expandedWidth + 2 * fw.bouncePadding, 200);
+    const w = fw.expandedWidth + 2 * fw.bouncePadding;
     const toastExtra = showToast ? 28 : 0;
     const h = fw.pillSize + 2 * fw.bouncePadding + toastExtra;
     const x = Math.round(centerX - w / 2);

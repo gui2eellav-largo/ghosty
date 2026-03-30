@@ -244,17 +244,13 @@ export default function FloatingBar() {
       windowRef.current.setFocus().catch(() => {});
     }
   };
-  useEffect(() => {
-    keepWindowInteractive();
-  }, []);
 
-  // Réaffirmer non click-through après chaque changement de layout.
-  // Skip setFocus during closing to avoid interrupting the animation.
+  // When menu opens, disable click-through and grab focus.
+  // When closing/pill, let the cursor-inside poll handle click-through.
   useLayoutEffect(() => {
     if (!positionReady) return;
-    invoke('set_window_click_through', { ignore: false }).catch(console.error);
-    // Only grab focus when opening (not closing — avoids frame drop)
     if (layoutMode === "menu") {
+      invoke('set_window_click_through', { ignore: false }).catch(console.error);
       windowRef.current.setFocus().catch(() => {});
     }
   }, [layoutMode, positionReady]);

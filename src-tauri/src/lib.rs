@@ -374,7 +374,11 @@ fn set_floating_window_bounds(
         "RUST set_floating_window_bounds ENTER x={} y={} width={} height={}",
         x, y, width, height
     ));
-    let _ = window.set_ignore_cursor_events(false);
+    // Only disable click-through for menu (large width). For pill mode,
+    // the cursor-inside poll handles click-through toggling.
+    if width > 100.0 {
+        let _ = window.set_ignore_cursor_events(false);
+    }
     // Pas de hide/show : ça déclenche tauri://blur et le listener ferme le menu immédiatement.
     // Ordre position puis size : sur macOS set_size préserve le centre, donc size puis position
     // faisait sauter la fenêtre à gauche puis à droite ; position d'abord garde le bord gauche fixe.
@@ -388,7 +392,7 @@ fn set_floating_window_bounds(
         .map_err(|e| e.to_string())?;
     #[cfg(debug_assertions)]
     write_menu_bounds_log("RUST after set_size");
-    // Focus uniquement à l'agrandissement (menu) pour réduire l'effet transparent 1 frame.
+    // Focus uniquement à l'agrandissement (menu).
     if width > 100.0 {
         let _ = window.set_focus();
     }
@@ -451,6 +455,8 @@ fn focus_floating_if_cursor_inside(
 
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     if inside {
+        // Cursor is inside — make window interactive (disable click-through)
+        let _ = window.set_ignore_cursor_events(false);
         let now = Instant::now();
         let do_focus = match *guard {
             Some(since) => {
@@ -465,6 +471,8 @@ fn focus_floating_if_cursor_inside(
             let _ = window.set_focus();
         }
     } else {
+        // Cursor is outside — enable click-through so user can click through the window
+        let _ = window.set_ignore_cursor_events(true);
         *guard = None;
     }
     Ok(())
