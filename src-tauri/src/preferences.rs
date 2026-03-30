@@ -221,6 +221,7 @@ fn load_from_file(path: &std::path::Path) -> Preferences {
             Err(_parse_err) => {
                 // Primary file is corrupted — try loading from backup
                 let bp = backup_path(path);
+                #[cfg(debug_assertions)]
                 eprintln!(
                     "[preferences] JSON parse failed for {:?}, trying backup {:?}",
                     path, bp
@@ -228,15 +229,18 @@ fn load_from_file(path: &std::path::Path) -> Preferences {
                 match std::fs::read_to_string(&bp) {
                     Ok(bs) => match serde_json::from_str(&bs) {
                         Ok(prefs) => {
+                            #[cfg(debug_assertions)]
                             eprintln!("[preferences] WARNING: loaded preferences from backup file");
                             prefs
                         }
                         Err(_) => {
+                            #[cfg(debug_assertions)]
                             eprintln!("[preferences] backup also corrupted, using defaults");
                             Preferences::default()
                         }
                     },
                     Err(_) => {
+                        #[cfg(debug_assertions)]
                         eprintln!("[preferences] no backup found, using defaults");
                         Preferences::default()
                     }
@@ -255,6 +259,7 @@ fn save_to_file(path: &std::path::Path, prefs: &Preferences) -> Result<(), Strin
     if path.exists() {
         let bp = backup_path(path);
         if let Err(e) = std::fs::copy(path, &bp) {
+            #[cfg(debug_assertions)]
             eprintln!("[preferences] failed to create backup: {}", e);
         }
     }

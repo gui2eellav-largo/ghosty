@@ -51,6 +51,7 @@ pub async fn transcribe_bytes(
             Err(e) if attempt < MAX_RETRIES => {
                 attempt += 1;
                 let backoff = Duration::from_millis(100 * 2u64.pow(attempt));
+                #[cfg(debug_assertions)]
                 eprintln!(
                     "Transcription tentative {}/{} échouée: {}",
                     attempt, MAX_RETRIES, e
@@ -66,6 +67,7 @@ pub async fn transcribe_bytes(
     // Provider fallback: if primary was Groq, try OpenAI
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
     if prefs.transcription.provider == "groq" && crate::secrets::get_api_key_cached().is_ok() {
+        #[cfg(debug_assertions)]
         eprintln!("Groq transcription failed, falling back to OpenAI: {}", primary_error);
         let _ = app.emit("provider_fallback", "Groq → OpenAI");
         match transcribe_bytes_openai_fallback(&wav_bytes, app).await {

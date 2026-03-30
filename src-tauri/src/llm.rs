@@ -94,6 +94,7 @@ pub async fn transform_text_streaming(
             Err(e) if attempt < MAX_RETRIES => {
                 attempt += 1;
                 let backoff = Duration::from_millis(150 * 2u64.pow(attempt));
+                #[cfg(debug_assertions)]
                 eprintln!(
                     "Transformation LLM tentative {}/{} échouée: {}",
                     attempt, MAX_RETRIES, e
@@ -109,6 +110,7 @@ pub async fn transform_text_streaming(
     // Provider fallback: if primary was Groq, try OpenAI
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
     if prefs.llm.provider == "groq" && crate::secrets::get_api_key_cached().is_ok() {
+        #[cfg(debug_assertions)]
         eprintln!("Groq LLM failed, falling back to OpenAI: {}", primary_error);
         let _ = app.emit("provider_fallback", "Groq → OpenAI");
         match transform_text_streaming_openai_fallback(text, mode_prompt, app, cancel, temperature_override).await {

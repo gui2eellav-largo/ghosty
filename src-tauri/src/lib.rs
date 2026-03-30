@@ -61,7 +61,7 @@ pub struct LastOutputState(pub Mutex<Option<String>>);
 /// Flag to prevent floating window focus stealing during auto-paste.
 pub struct PasteInProgress(pub std::sync::atomic::AtomicBool);
 
-/// Mapping shortcut id -> config pour le handler des raccourcis globaux (chargé depuis shortcuts.json).
+/// Maps shortcut id → config for the global shortcut handler (loaded from shortcuts.json).
 pub struct ShortcutMappingState(pub Mutex<HashMap<u32, shortcuts::ShortcutConfig>>);
 
 /// Items de menu à coche (micro et langues) du tray, pour mettre à jour les coches après clic.
@@ -89,7 +89,6 @@ impl TrayCheckItems {
 const TRAY_URL_HELP: &str = "https://github.com/gui2eellav-largo/ghosty#readme";
 const TRAY_URL_SUPPORT: &str = "mailto:support@ghosty.app";
 const TRAY_URL_FEEDBACK: &str = "https://github.com/gui2eellav-largo/ghosty/issues";
-const TRAY_URL_CHECK_UPDATES: &str = "https://github.com/gui2eellav-largo/ghosty/releases";
 
 #[cfg(target_os = "macos")]
 fn open_url(url: &str) -> Result<(), String> {
@@ -105,7 +104,7 @@ fn open_url(_url: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Liste les noms des workflows Ghosty actuellement installés dans ~/Library/Services/ (pour comparer avec les modes activés).
+/// Lists installed Ghosty workflow names in ~/Library/Services/ (compared with enabled modes).
 #[tauri::command]
 fn list_installed_ghosty_services() -> Result<Vec<String>, String> {
     #[cfg(target_os = "macos")]
@@ -136,7 +135,7 @@ fn list_installed_ghosty_services() -> Result<Vec<String>, String> {
     }
 }
 
-/// Ouvre le dossier Services macOS dans le Finder (pour y déposer les workflows Ghosty – clic droit).
+/// Opens the macOS Services folder in Finder.
 #[tauri::command]
 fn open_services_folder() -> Result<(), String> {
     #[cfg(target_os = "macos")]
@@ -1107,12 +1106,12 @@ pub fn run() {
                     )?;
                     let mic_device_items: Vec<CheckMenuItem<tauri::Wry>> = devices
                         .iter()
-                        .enumerate()
-                        .filter_map(|(i, d)| {
+                        .filter_map(|d| {
                             let checked = current_mic.map(|id| d.id.as_str() == id).unwrap_or(false);
+                            // Use device name as menu ID for stable identification across sessions
                             CheckMenuItem::with_id(
                                 app,
-                                format!("tray_mic_{}", i),
+                                format!("tray_mic_dev_{}", d.id),
                                 &d.name,
                                 true,
                                 checked,
@@ -1134,7 +1133,7 @@ pub fn run() {
                     )?;
 
                     const TRAY_LANGS: &[(&str, &str)] = &[
-                        ("tray_lang_default", "Default"),
+                        ("tray_lang_default", "Auto-detect"),
                         ("tray_lang_fr", "French"),
                         ("tray_lang_en", "English"),
                         ("tray_lang_es", "Spanish"),
@@ -1172,7 +1171,7 @@ pub fn run() {
 
                     let sep3 = PredefinedMenuItem::separator(app)?;
                     let help_i = MenuItem::with_id(app, "tray_help", "Help Center", true, None::<&str>)?;
-                    let support_i = MenuItem::with_id(app, "tray_support", "Talk to support", true, Some("Command+:"))?;
+                    let support_i = MenuItem::with_id(app, "tray_support", "Talk to support", true, None::<&str>)?;
                     let feedback_i = MenuItem::with_id(app, "tray_feedback", "General feedback", true, None::<&str>)?;
                     let sep4 = PredefinedMenuItem::separator(app)?;
                     let quit_i = PredefinedMenuItem::quit(app, Some("Quit Ghosty"))?;
@@ -1219,16 +1218,24 @@ pub fn run() {
                                         .flatten();
                                     if let Some(t) = text {
                                         let _ = crate::clipboard::copy_to_clipboard(&t, app);
-                                        // enigo must run on main thread (HIToolbox)
                                         let app_paste = app.clone();
                                         let _ = app.run_on_main_thread(move || {
                                             let _ = crate::clipboard::send_paste_keystroke();
                                             drop(app_paste);
                                         });
+                                    } else {
+                                        // Nothing to paste — notify user
+                                        let _ = app.emit("transcription_error", "Nothing to paste yet. Record something first.");
                                     }
                                 }
                                 "tray_check_updates" => {
-                                    let _ = open_url(TRAY_URL_CHECK_UPDATES);
+                                    // Open Dashboard and trigger update check via frontend
+                                    if let Some(w) = app.get_webview_window("main") {
+                                        let _ = w.show();
+                                        let _ = w.unminimize();
+                                        let _ = w.set_focus();
+                                    }
+                                    let _ = app.emit("open-settings-section", "general");
                                 }
                                 "tray_shortcuts" => {
                                     if let Some(w) = app.get_webview_window("main") {
@@ -1248,21 +1255,14 @@ pub fn run() {
                                         let _ = app.emit("preferences-updated", ());
                                     }
                                 }
-                                id if id.starts_with("tray_mic_") => {
-                                    if let Some(idx_str) = id.strip_prefix("tray_mic_") {
-                                        if let Ok(idx) = idx_str.parse::<usize>() {
-                                            if let Ok(devices) = audio::list_input_devices() {
-                                                if let Some(d) = devices.get(idx) {
-                                                    let partial = serde_json::json!({ "recording": { "inputDeviceId": d.id } });
-                                                    if preferences::update_preferences(app, partial).is_ok() {
-                                                        if let Some(state) = app.try_state::<TrayCheckItems>() {
-                                                            state.set_mic_checked(id);
-                                                        }
-                                                        let _ = app.emit("preferences-updated", ());
-                                                    }
-                                                }
-                                            }
+                                id if id.starts_with("tray_mic_dev_") => {
+                                    let device_id = id.strip_prefix("tray_mic_dev_").unwrap_or("");
+                                    let partial = serde_json::json!({ "recording": { "inputDeviceId": device_id } });
+                                    if preferences::update_preferences(app, partial).is_ok() {
+                                        if let Some(state) = app.try_state::<TrayCheckItems>() {
+                                            state.set_mic_checked(id);
                                         }
+                                        let _ = app.emit("preferences-updated", ());
                                     }
                                 }
                                 id if id == "tray_lang_default" => {
@@ -1277,7 +1277,8 @@ pub fn run() {
                                 }
                                 id if id.starts_with("tray_lang_") => {
                                     if let Some(code) = id.strip_prefix("tray_lang_") {
-                                        let lang = if code.is_empty() {
+                                        const VALID_LANGS: &[&str] = &["fr", "en", "es", "de"];
+                                        let lang = if code.is_empty() || !VALID_LANGS.contains(&code) {
                                             None
                                         } else {
                                             Some(code.to_string())

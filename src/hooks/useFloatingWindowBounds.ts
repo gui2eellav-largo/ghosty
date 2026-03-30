@@ -33,30 +33,18 @@ export function useFloatingWindowBounds(
       const x = Math.round(centerX - pillW / 2);
       const same = lastBoundsRef.current?.x === x && lastBoundsRef.current?.y === y && lastBoundsRef.current?.w === w && lastBoundsRef.current?.h === h;
       if (same) return;
-      const prev = lastBoundsRef.current;
       lastBoundsRef.current = { x, y, w, h };
-      const deltaX = prev ? x - prev.x : 0;
-      invoke("menu_bounds_log", {
-        line: `FRONT useLayoutEffect layoutMode=menu centerX=${centerX} x=${x} w=${w} prevX=${prev?.x ?? "null"} deltaX=${deltaX} -> set_floating_window_bounds`,
-      }).catch(() => {});
       invoke("set_floating_window_bounds", { x, y, width: w, height: h }).catch(console.error);
       return;
     }
 
-    // Fixed width large enough for toasts (~200px) — extra space is transparent + click-through.
-    // Never changes, so no horizontal jump.
     const w = Math.max(fw.expandedWidth + 2 * fw.bouncePadding, 200);
     const toastExtra = showToast ? 28 : 0;
     const h = fw.pillSize + 2 * fw.bouncePadding + toastExtra;
     const x = Math.round(centerX - w / 2);
     const same = lastBoundsRef.current?.x === x && lastBoundsRef.current?.y === y && lastBoundsRef.current?.w === w && lastBoundsRef.current?.h === h;
     if (same) return;
-    const prev = lastBoundsRef.current;
     lastBoundsRef.current = { x, y, w, h };
-    const deltaX = prev ? x - prev.x : 0;
-    invoke("menu_bounds_log", {
-      line: `FRONT useLayoutEffect layoutMode=pill centerX=${centerX} x=${x} w=${w} prevX=${prev?.x ?? "null"} deltaX=${deltaX} -> set_floating_window_bounds`,
-    }).catch(() => {});
     invoke("set_floating_window_bounds", { x, y, width: w, height: h }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- lastBoundsRef is a ref, stable
   }, [positionReady, layoutMode, centerXRef, windowYRef, showToast]);

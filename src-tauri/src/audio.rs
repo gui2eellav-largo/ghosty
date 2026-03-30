@@ -364,6 +364,7 @@ async fn run_pipeline(
                     if e == CANCELLED_MSG {
                         return Err(CANCELLED_MSG.to_string());
                     }
+                    #[cfg(debug_assertions)]
                     eprintln!("Erreur transformation LLM: {}", e);
                     let _ = app.emit("llm_skipped", e.clone());
                     transcribed_text.clone()
@@ -531,6 +532,7 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                     "[audio] samples={}, duration={:.2}s, rate={}, RMS={:.6}, peak={:.6}\n",
                     sample_count, duration_secs, sample_rate, rms, peak
                 );
+                #[cfg(debug_assertions)]
                 eprintln!("{}", diag.trim());
                 #[cfg(debug_assertions)]
                 {
@@ -549,6 +551,7 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                 }
                 // VAD: Reject near-silence before sending to Whisper (prevents hallucinations)
                 if peak < 0.002 {
+                    #[cfg(debug_assertions)]
                     eprintln!("[audio] VAD rejected: peak={:.6}, RMS={:.6} — likely silence", peak, rms);
                     let _ = app.emit("transcription_error", "Audio trop faible ou silence détecté. Parlez plus fort ou plus près du micro.");
                     continue;
@@ -576,6 +579,7 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                         let result = run_pipeline(cancel_child, bytes, handle.clone()).await;
                         clear_pipeline_cancel(&handle);
                         if let Err(ref err) = result {
+                            #[cfg(debug_assertions)]
                             eprintln!("[run_pipeline] ERROR: {}", err);
                             #[cfg(debug_assertions)]
                             {
@@ -682,6 +686,7 @@ fn start_stream(
     let config = device.default_input_config().map_err(|e| e.to_string())?;
     let channels = config.channels();
 
+    #[cfg(debug_assertions)]
     eprintln!(
         "[audio] device='{}', format={:?}, rate={}, channels={}",
         device_name,
@@ -707,7 +712,9 @@ fn start_stream(
     buffer.lock().map_err(|e| e.to_string())?.clear();
 
     let buffer_clone = buffer.clone();
-    let err_fn = move |err| {
+    let err_fn = move |err: cpal::StreamError| {
+        let _ = err; // consumed; logged only in debug builds
+        #[cfg(debug_assertions)]
         eprintln!("audio stream error: {}", err);
     };
 

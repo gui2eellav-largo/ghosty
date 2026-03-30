@@ -454,7 +454,6 @@ export default function FloatingBar() {
     if (cooldownElapsed < MENU_CLOSE_COOLDOWN_MS) return;
     keepWindowInteractive();
     loadHasApiKey();
-    invoke("menu_bounds_log", { line: "FRONT handleDotClick -> setIsMenuOpen(true)" }).catch(() => {});
     setIsMenuOpen(true);
   };
 
