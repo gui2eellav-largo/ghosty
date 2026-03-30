@@ -91,7 +91,11 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 text-red-700 dark:text-red-400 text-sm">
+            <div
+              id="addword-error"
+              role="alert"
+              className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 text-red-700 dark:text-red-400 text-sm"
+            >
               <AlertCircle size={16} className="flex-shrink-0" />
               <span>{error}</span>
             </div>
@@ -122,6 +126,7 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
                   value={misspelling}
                   onChange={(e) => setMisspelling(e.target.value)}
                   placeholder={strings.addWordModal.misspellingPlaceholder}
+                  aria-describedby={error ? "addword-error" : undefined}
                   className="w-full px-4 py-2.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.08] dark:border-white/[0.08] focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-sm"
                 />
               </div>
@@ -138,6 +143,7 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
                   value={correctSpelling}
                   onChange={(e) => setCorrectSpelling(e.target.value)}
                   placeholder={strings.addWordModal.correctSpellingPlaceholder}
+                  aria-describedby={error ? "addword-error" : undefined}
                   className="w-full px-4 py-2.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.08] dark:border-white/[0.08] focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-sm"
                 />
               </div>
@@ -153,6 +159,7 @@ export function AddWordModal({ isOpen, onClose, onAdd }: AddWordModalProps) {
                 value={word}
                 onChange={(e) => setWord(e.target.value)}
                 placeholder={strings.addWordModal.wordPlaceholder}
+                aria-describedby={error ? "addword-error" : undefined}
                 className="w-full px-4 py-2.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/[0.08] dark:border-white/[0.08] focus:outline-none focus:ring-2 focus:ring-orange-500/30 text-sm font-semibold"
               />
               <p className="text-[11px] text-muted-foreground/60 mt-1.5">

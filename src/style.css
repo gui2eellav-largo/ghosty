@@ -385,3 +385,32 @@ html.floating-window body #app {
   overflow: hidden;
   word-break: break-word;
 }
+
+/* Accessibility: disable all animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-red,
+  .animate-pulse-success,
+  .animate-pulse-error,
+  .animate-breathe,
+  .animate-clipboard-toast,
+  .animate-error-toast,
+  .animate-shimmer,
+  .animate-check-pop,
+  .floating-menu-enter,
+  .menu-spring-in {
+    animation: none !important;
+  }
+
+  .floating-menu-transition {
+    transition: none !important;
+  }
+
+  .transition-spring,
+  .transition-elastic {
+    transition-timing-function: ease !important;
+  }
+
+  .waveform-bar {
+    transition: none !important;
+  }
+}

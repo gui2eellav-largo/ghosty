@@ -132,11 +132,18 @@ function HowItWorksStep({ onNext }: { onNext: () => void }) {
 
 type KeyStatus = "idle" | "validating" | "testing" | "saving" | "success" | "error";
 
+type OnboardingProvider = "openai" | "groq";
+
 function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
+  const [provider, setProvider] = useState<OnboardingProvider>("openai");
   const [key, setKey] = useState("");
   const [visible, setVisible] = useState(false);
   const [status, setStatus] = useState<KeyStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+
+  const placeholder = provider === "groq" ? strings.onboarding.apiKey.placeholderGroq : strings.onboarding.apiKey.placeholderOpenAI;
+  const getApiKeyUrl = provider === "groq" ? "https://console.groq.com/keys" : "https://platform.openai.com/api-keys";
+  const getApiKeyLabel = provider === "groq" ? strings.onboarding.apiKey.getApiKeyGroq : strings.onboarding.apiKey.getApiKeyOpenAI;
 
   const handleSave = async () => {
     const trimmed = key.trim();
@@ -146,18 +153,23 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
       setError(strings.onboarding.apiKey.errors.enterKey);
       return;
     }
-    if (!trimmed.startsWith("sk-")) {
+    if (provider === "openai" && !trimmed.startsWith("sk-")) {
       setStatus("error");
       setError(strings.onboarding.apiKey.errors.mustStartWithSk);
+      return;
+    }
+    if (provider === "groq" && !trimmed.startsWith("gsk_")) {
+      setStatus("error");
+      setError(strings.onboarding.apiKey.errors.mustStartWithGsk);
       return;
     }
 
     setStatus("validating");
     try {
       setStatus("testing");
-      await invoke("test_openai_key", { key: trimmed });
+      await invoke("test_openai_key", { key: trimmed, provider });
       setStatus("saving");
-      await api.apiKeys.add({ name: "Default", provider: "openai", key: trimmed });
+      await api.apiKeys.add({ name: "Default", provider, key: trimmed });
       setStatus("success");
       setTimeout(() => onNext(), 900);
     } catch (e) {
@@ -171,9 +183,34 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
   return (
     <>
       <h2 className="text-2xl font-semibold text-white mb-2">{strings.onboarding.apiKey.title}</h2>
-      <p className="text-sm text-white/40 mb-8 max-w-[340px] leading-relaxed">
+      <p className="text-sm text-white/40 mb-6 max-w-[340px] leading-relaxed">
         {strings.onboarding.apiKey.description}
       </p>
+
+      {/* Provider selector */}
+      <div className="flex gap-2 mb-6 w-full max-w-[320px]">
+        {(["openai", "groq"] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => { setProvider(p); setKey(""); setStatus("idle"); setError(null); }}
+            className={cn(
+              "flex-1 py-2 rounded-lg text-xs font-medium transition-all border",
+              provider === p
+                ? "bg-white/10 border-white/20 text-white"
+                : "bg-white/[0.03] border-white/[0.06] text-white/40 hover:text-white/60"
+            )}
+          >
+            {p === "openai" ? strings.onboarding.apiKey.providerOpenAI : strings.onboarding.apiKey.providerGroq}
+          </button>
+        ))}
+      </div>
+
+      {provider === "groq" && (
+        <p className="text-xs text-white/30 mb-4 max-w-[320px]">
+          {strings.onboarding.apiKey.groqDescription}
+        </p>
+      )}
 
       <div className="w-full mb-3">
         <div className="relative">
@@ -182,7 +219,7 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
             value={key}
             onChange={(e) => { setKey(e.target.value); setStatus("idle"); setError(null); }}
             onKeyDown={(e) => e.key === "Enter" && !isLoading && handleSave()}
-            placeholder="sk-..."
+            placeholder={placeholder}
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             className={cn(
@@ -206,15 +243,34 @@ function ApiKeyStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
         )}
       </div>
 
-      <a
-        href="https://platform.openai.com/api-keys"
-        target="_blank"
-        rel="noreferrer"
-        className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors mb-8"
-      >
-        <ExternalLink className="w-3 h-3" />
-        {strings.onboarding.apiKey.getApiKey}
-      </a>
+      {/* Cost transparency */}
+      {provider === "openai" && (
+        <p className="text-xs text-white/25 mb-2 max-w-[340px] leading-relaxed">
+          {strings.onboarding.apiKey.costNote}
+        </p>
+      )}
+
+      <div className="flex items-center gap-3 mb-8">
+        <a
+          href={getApiKeyUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1 text-xs text-white/30 hover:text-white/60 transition-colors"
+        >
+          <ExternalLink className="w-3 h-3" />
+          {getApiKeyLabel}
+        </a>
+        {provider === "openai" && (
+          <a
+            href="https://openai.com/pricing"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-white/30 hover:text-white/60 transition-colors"
+          >
+            {strings.onboarding.apiKey.viewPricing}
+          </a>
+        )}
+      </div>
 
       <div className="flex flex-col gap-3 w-full">
         <button

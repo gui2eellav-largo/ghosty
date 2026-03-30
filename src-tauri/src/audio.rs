@@ -142,8 +142,11 @@ impl RecorderState {
         // This is used later to reactivate it for auto-paste (Cmd+V).
         if let Ok(mut prev) = self.previous_app.lock() {
             *prev = crate::clipboard::get_frontmost_app();
-            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/ghosty_paste.log") {
-                let _ = std::io::Write::write_all(&mut f, format!("[start_capture] previous_app={:?}\n", *prev).as_bytes());
+            #[cfg(debug_assertions)]
+            {
+                if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/ghosty_paste.log") {
+                    let _ = std::io::Write::write_all(&mut f, format!("[start_capture] previous_app={:?}\n", *prev).as_bytes());
+                }
             }
         }
         Ok(())
@@ -362,6 +365,7 @@ async fn run_pipeline(
                         return Err(CANCELLED_MSG.to_string());
                     }
                     eprintln!("Erreur transformation LLM: {}", e);
+                    let _ = app.emit("llm_skipped", e.clone());
                     transcribed_text.clone()
                 }
             }
@@ -528,13 +532,16 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                     sample_count, duration_secs, sample_rate, rms, peak
                 );
                 eprintln!("{}", diag.trim());
-                let _ = std::fs::OpenOptions::new()
-                    .create(true).append(true)
-                    .open("/tmp/ghosty_diag.log")
-                    .and_then(|mut f| std::io::Write::write_all(&mut f, diag.as_bytes()));
-                // Save debug WAV for inspection
-                if let Ok(wav) = write_wav_to_bytes(&samples, sample_rate) {
-                    let _ = std::fs::write("/tmp/ghosty_debug.wav", &wav);
+                #[cfg(debug_assertions)]
+                {
+                    let _ = std::fs::OpenOptions::new()
+                        .create(true).append(true)
+                        .open("/tmp/ghosty_diag.log")
+                        .and_then(|mut f| std::io::Write::write_all(&mut f, diag.as_bytes()));
+                    // Save debug WAV for inspection
+                    if let Ok(wav) = write_wav_to_bytes(&samples, sample_rate) {
+                        let _ = std::fs::write("/tmp/ghosty_debug.wav", &wav);
+                    }
                 }
                 if samples.is_empty() {
                     let _ = app.emit("transcription_error", "aucun audio enregistré");
@@ -570,8 +577,11 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                         clear_pipeline_cancel(&handle);
                         if let Err(ref err) = result {
                             eprintln!("[run_pipeline] ERROR: {}", err);
-                            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/ghosty_diag.log") {
-                                let _ = std::io::Write::write_all(&mut f, format!("[run_pipeline] ERROR: {}\n", err).as_bytes());
+                            #[cfg(debug_assertions)]
+                            {
+                                if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("/tmp/ghosty_diag.log") {
+                                    let _ = std::io::Write::write_all(&mut f, format!("[run_pipeline] ERROR: {}\n", err).as_bytes());
+                                }
                             }
                             let _ = handle.emit("transcription_error", err.clone());
                         }
@@ -679,16 +689,19 @@ fn start_stream(
         config.sample_rate().0,
         channels
     );
-    let _ = std::fs::write(
-        "/tmp/ghosty_device.log",
-        format!(
-            "device={}\nformat={:?}\nrate={}\nchannels={}\n",
-            device_name,
-            config.sample_format(),
-            config.sample_rate().0,
-            channels
-        ),
-    );
+    #[cfg(debug_assertions)]
+    {
+        let _ = std::fs::write(
+            "/tmp/ghosty_device.log",
+            format!(
+                "device={}\nformat={:?}\nrate={}\nchannels={}\n",
+                device_name,
+                config.sample_format(),
+                config.sample_rate().0,
+                channels
+            ),
+        );
+    }
 
     *sample_rate = config.sample_rate().0;
     buffer.lock().map_err(|e| e.to_string())?.clear();

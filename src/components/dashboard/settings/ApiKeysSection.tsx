@@ -213,12 +213,13 @@ export function ApiKeysSection({
                   }
                 }}
                 placeholder={strings.settings.apiKeys.keyPlaceholder}
+                aria-describedby={displayError ? "api-key-error" : undefined}
                 className={cn(uiClasses.input, "py-2")}
                 autoComplete="off"
               />
             </div>
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-red-600 dark:text-red-400 flex-1" aria-live="polite">
+              <p id="api-key-error" className="text-xs text-red-600 dark:text-red-400 flex-1" aria-live="polite">
                 {displayError ?? ""}
               </p>
               <div className="flex items-center gap-2 shrink-0">

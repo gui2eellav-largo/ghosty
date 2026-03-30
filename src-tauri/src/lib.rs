@@ -1034,6 +1034,9 @@ pub fn run() {
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             // Pre-warm microphone permission and audio worker for instant recording start
             audio::warmup_mic_permission();
             if let Some(state) = app.try_state::<audio::RecorderState>() {
@@ -1195,7 +1198,8 @@ pub fn run() {
                     )?;
 
                     let _tray = TrayIconBuilder::new()
-                        .icon(app.default_window_icon().expect("app must have a default window icon").clone())
+                        .icon(tauri::include_image!("icons/tray-icon.png"))
+                        .icon_as_template(true)
                         .menu(&menu)
                         .show_menu_on_left_click(true)
                         .on_menu_event(move |app, event| {

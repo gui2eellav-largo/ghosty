@@ -87,13 +87,13 @@ export function CorrectionSuggestion({
       />
 
       {/* Misspelling → Correction */}
-      <span className="text-[11px] text-white/50 line-through">{current.misspelling}</span>
-      <span className="text-[11px] text-white/30 mx-0.5">→</span>
+      <span className="text-[11px] text-white/70 line-through">{current.misspelling}</span>
+      <span className="text-[11px] text-white/50 mx-0.5">→</span>
       <span className="text-[11px] text-white/90 font-medium">{current.correction}</span>
 
       {/* Remaining count */}
       {remaining > 0 && (
-        <span className="text-[10px] text-white/25 ml-0.5">+{remaining}</span>
+        <span className="text-[10px] text-white/50 ml-0.5">+{remaining}</span>
       )}
 
       {/* Accept */}
@@ -102,8 +102,8 @@ export function CorrectionSuggestion({
         onClick={handleAccept}
         aria-label={strings.correction.addToDictionary(current.correction)}
         className={cn(
-          "ml-1 flex items-center justify-center w-5 h-5 rounded-md",
-          "text-white/50 hover:text-white hover:bg-white/10 transition-colors duration-150"
+          "ml-1 flex items-center justify-center w-5 h-5 rounded-md p-3 -m-1.5",
+          "text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-150"
         )}
       >
         <Plus size={12} />
@@ -115,8 +115,8 @@ export function CorrectionSuggestion({
         onClick={handleDismiss}
         aria-label={strings.correction.dismiss}
         className={cn(
-          "flex items-center justify-center w-5 h-5 rounded-md",
-          "text-white/30 hover:text-white/60 hover:bg-white/[0.06] transition-colors duration-150"
+          "flex items-center justify-center w-5 h-5 rounded-md p-3 -m-1.5",
+          "text-white/50 hover:text-white/70 hover:bg-white/[0.06] transition-colors duration-150"
         )}
       >
         <X size={11} />

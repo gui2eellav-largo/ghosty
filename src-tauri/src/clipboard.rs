@@ -52,14 +52,22 @@ pub fn get_frontmost_app() -> Option<String> {
 }
 
 /// Append a debug line to /tmp/ghosty_paste.log (for troubleshooting auto-paste).
+/// In release builds this is a no-op — no file I/O occurs.
 pub fn log_debug(msg: &str) {
-    use std::io::Write;
-    if let Ok(mut f) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("/tmp/ghosty_paste.log")
+    #[cfg(debug_assertions)]
     {
-        let _ = writeln!(f, "{}", msg);
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("/tmp/ghosty_paste.log")
+        {
+            let _ = writeln!(f, "{}", msg);
+        }
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        let _ = msg;
     }
 }
 

@@ -24,8 +24,13 @@ export const strings = {
     showLess: "Show less",
     thoughts: "Thoughts",
     today: "Today",
-    setupApiKey: "Set up an API key",
-    toEnableTranscription: "to enable transcription.",
+    setupApiKey: "Add an API key to start recording",
+    toEnableTranscription: "",
+    openSettings: "Open Settings",
+    modeHintDirect: "Direct = clean transcription",
+    modeHintShape: "Shape = organize & tighten",
+    modeHintReframe: "Reframe = rephrase strategically",
+    modeHintBuild: "Build = expand into full request",
     holdTooltip: (shortcut: string) =>
       `Hold ${shortcut} to dictate and let Ghosty format for you`,
     heroDescription:
@@ -47,16 +52,16 @@ export const strings = {
     delete: "Delete",
     duplicate: "Duplicate",
     export: "Export",
-    modeNamePlaceholder: "Mode name",
+    modeNamePlaceholder: "e.g., Email, Code Review, Summary",
     shortDescriptionPlaceholder: "Short description",
-    selectOrCreate: "Select a mode to view its prompt, or create your own.",
+    selectOrCreate: "Select a mode to view its instructions, or create your own.",
     builtInList: "4 built-in modes: Direct, Shape, Reframe, Build.",
     directModeTooltip: "No AI rewrite — just clean transcription.",
     builtInTooltip: "Built-in mode",
-    visibleInWidget: "Visible in widget — click to hide",
-    hiddenFromWidget: "Hidden from widget — click to show",
-    hideFromWidget: "Hide from widget",
-    showInWidget: "Show in widget",
+    visibleInWidget: "Visible in floating menu — click to hide",
+    hiddenFromWidget: "Hidden from floating menu — click to show",
+    hideFromWidget: "Hide from floating menu",
+    showInWidget: "Show in floating menu",
     dragToReorder: "Drag to reorder",
     modeActions: "Mode actions",
     duplicateMode: "Duplicate",
@@ -66,7 +71,7 @@ export const strings = {
     playground: {
       title: "Playground",
       placeholder: "Type something to test this mode...",
-      apply: "Run",
+      apply: "Apply",
       copy: "Copy",
     },
     importModal: {
@@ -74,41 +79,41 @@ export const strings = {
       description:
         "Paste exported JSON. Each mode needs a",
       nameField: "name",
-      systemPromptField: "systemPrompt",
+      systemPromptField: "instructions",
     },
   },
   dictionary: {
     title: "Dictionary",
     description:
-      "Add acronyms, technical terms, or names to help Ghosty's transcription engine.",
+      "Add acronyms, technical terms, or names to help how Ghosty recognizes your voice.",
     addWord: "Add word",
     addFirstWord: "Add your first word",
     noDictionaryEntries: "No dictionary entries yet",
     removeEntry: "Remove this entry",
-    addVariants: "Add variants",
-    variantsPlaceholder: "Variants (a, b, c)",
+    addVariants: "Add alternate spellings",
+    variantsPlaceholder: "Alternate spellings (a, b, c)",
     guide: {
       title: "How to add words or terms",
       step1:
         'Click <strong class="text-foreground">Add word</strong> to add a word or a correction (recognized form \u2192 preferred form).',
       step2:
-        'Optional: on an entry, click <strong class="text-foreground">Add variants</strong> for other spellings.',
+        'Optional: on an entry, click <strong class="text-foreground">Add alternate spellings</strong> for other spellings.',
       step3:
         "Dictate a sentence containing that word (using your shortcut) and check the result in the Home history.",
       whisperNote:
-        "Entries are sent to Whisper as context to guide recognition. If a word is still not recognized well, add variants or a phonetic pronunciation if supported.",
+        "These entries help improve recognition accuracy. If a word still isn't recognized correctly, try adding variations.",
     },
   },
   settings: {
-    title: "SETTINGS",
+    title: "Settings",
     subtitle: "Preferences",
     closeSettings: "Close settings",
     groups: {
-      general: "GENERAL",
-      setup: "SETUP",
-      configuration: "CONFIGURATION",
-      account: "ACCOUNT",
-      advanced: "ADVANCED",
+      general: "General",
+      setup: "Setup",
+      configuration: "Configuration",
+      account: "Account",
+      advanced: "Advanced",
     },
     general: {
       title: "General",
@@ -149,7 +154,7 @@ export const strings = {
       autoCopyDesc: "Result is automatically copied after dictation",
       soundOnComplete: "Play completion sound",
       soundOnCompleteDesc: "Play a short sound when your dictation is ready",
-      systemNotifications: "System notifications",
+      systemNotifications: "Desktop notifications",
       systemNotificationsDesc:
         "Show a notification when dictation or transformation is ready",
       autoPaste: "Auto-paste after transform",
@@ -173,8 +178,9 @@ export const strings = {
         reinstall: "Reinstall",
         enableModesFirst: "Enable at least one mode first",
         openServicesFolder: "Open Services folder",
+        /** @internal Shown only in troubleshooting / dev docs, not in the main UI. */
         devWarning:
-          'Dev only: run Ghosty from the built app (.app), not in dev. Otherwise you may see "No application knows how to open URL ghosty://".',
+          'If shortcuts don\'t work, make sure you\'re running the built app (.app). See Troubleshooting in the docs for details.',
       },
     },
     shortcuts: {
@@ -270,10 +276,19 @@ export const strings = {
     apiKey: {
       title: "Connect your API key",
       description:
-        "Ghosty uses your OpenAI API key directly \u2014 no account, no subscription beyond what you use.",
+        "Ghosty uses your API key directly \u2014 no account, no subscription beyond what you use.",
+      costNote: "OpenAI charges per transcription (~$0.006/min). No subscription \u2014 pay as you go.",
+      viewPricing: "View pricing \u2192",
+      providerOpenAI: "OpenAI",
+      providerGroq: "Groq",
+      groqDescription: "Groq is faster and cheaper for transcription.",
+      placeholderOpenAI: "sk-...",
+      placeholderGroq: "gsk_...",
       placeholder: "sk-...",
       hideKey: "Hide key",
       showKey: "Show key",
+      getApiKeyOpenAI: "Get your API key on platform.openai.com",
+      getApiKeyGroq: "Get your API key on console.groq.com",
       getApiKey: "Get your API key on platform.openai.com",
       validating: "Validating\u2026",
       testingKey: "Testing key\u2026",
@@ -284,12 +299,13 @@ export const strings = {
       errors: {
         enterKey: "Enter your API key.",
         mustStartWithSk: "Key must start with sk-",
+        mustStartWithGsk: "Key must start with gsk_",
       },
     },
     ready: {
       title: "You're all set",
       description:
-        "anywhere to start recording. You can change this shortcut in Settings.",
+        "anywhere to record. Your text is copied and pasted into the active app. You can customize this hotkey in Settings.",
       openGhosty: "Open Ghosty",
     },
   },
@@ -303,7 +319,7 @@ export const strings = {
     dismiss: "Dismiss",
   },
   floatingBar: {
-    configureApiKey: "Configure API key",
+    configureApiKey: "Add API key to start",
     copied: "Copied \u00B7 \u2318V",
     loading: "Loading\u2026",
   },
@@ -316,7 +332,7 @@ export const strings = {
     apiKeyEmpty: "API key cannot be empty",
     openaiKeyPrefix: "OpenAI key must start with 'sk-' or 'sk-proj-'",
     openaiKeyTooShort: "OpenAI key too short: minimum 40 characters",
-    invalidCharacters: "Invalid characters detected",
+    invalidCharacters: "Key contains invalid characters. Use only letters, numbers, and hyphens.",
     customKeyTooShort: "Key too short: minimum 10 characters",
     unknownProvider: "Unknown provider",
     deleteApiKeyConfirm: "Are you sure you want to delete this API key?",
@@ -333,7 +349,7 @@ export const strings = {
     correctSpelling: "Correct spelling",
     correctSpellingPlaceholder: "e.g. Wispr",
     word: "Word *",
-    wordPlaceholder: "Add a new word",
+    wordPlaceholder: "e.g., API, GitHub, Kubernetes",
     wordHint: "The word to add to the transcription dictionary",
     adding: "Adding...",
     addWord: "Add word",
@@ -360,7 +376,7 @@ export const strings = {
     start: "Start voice input",
   },
   systemPromptEditor: {
-    improvePrompt: "Improve prompt",
+    improveInstructions: "Improve instructions",
     undo: "Undo",
   },
   conversation: {

@@ -5,7 +5,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { AddWordModal } from "@/components/AddWordModal";
 import type { DictionaryEntry } from "@/types";
 import { BookOpen, Plus, Trash2 } from "lucide-react";
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 
 export interface DictionaryViewProps {
   dictionaryEntries: DictionaryEntry[];
@@ -24,7 +24,7 @@ export interface DictionaryViewProps {
   }) => Promise<void>;
 }
 
-export function DictionaryView({
+export const DictionaryView = React.memo(function DictionaryView({
   dictionaryEntries,
   editingDictionaryId,
   setEditingDictionaryId,
@@ -172,4 +172,4 @@ export function DictionaryView({
       </div>
     </div>
   );
-}
+});

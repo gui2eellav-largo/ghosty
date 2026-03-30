@@ -28,7 +28,7 @@ export const tauriApi = {
       invoke("save_mode", { mode }),
     delete: (modeId: string): Promise<ModeConfig[]> => invoke("delete_mode", { modeId }),
     reorder: (modeIds: string[]): Promise<ModeConfig[]> => invoke("reorder_modes", { modeIds }),
-    setActivePrompt: (prompt: string, mode: string): Promise<unknown> =>
+    setActivePrompt: (prompt: string, mode: string): Promise<void> =>
       invoke("set_active_prompt", { prompt, mode }),
   },
 
@@ -56,9 +56,9 @@ export const tauriApi = {
     toggle: (shortcutId: string): Promise<ShortcutConfig[]> =>
       invoke("toggle_shortcut", { shortcutId }),
     reset: (): Promise<ShortcutConfig[]> => invoke("reset_shortcuts"),
-    checkAvailable: (keys: string[]): Promise<unknown> =>
+    checkAvailable: (keys: string[]): Promise<void> =>
       invoke("check_shortcut_available", { keys }),
-    reregister: (): Promise<unknown> => invoke("reregister_shortcuts"),
+    reregister: (): Promise<void> => invoke("reregister_shortcuts"),
   },
 
   dictionary: {
@@ -89,23 +89,23 @@ export const tauriApi = {
         pronunciation: entry.pronunciation ?? null,
         misspellings: entry.misspellings ?? null,
       }),
-    delete: (id: string): Promise<unknown> => invoke("delete_dictionary_entry", { id }),
+    delete: (id: string): Promise<void> => invoke("delete_dictionary_entry", { id }),
   },
 
   apiKeys: {
     getAll: (): Promise<Array<[string, string, string, boolean]>> =>
       invoke("get_all_api_keys"),
     hasKey: (): Promise<boolean> => invoke("has_openai_key"),
-    test: (key: string, provider?: string): Promise<unknown> => invoke("test_openai_key", { key, provider }),
-    add: (params: { name: string; provider: string; key: string }): Promise<unknown> =>
+    test: (key: string, provider?: string): Promise<void> => invoke("test_openai_key", { key, provider }),
+    add: (params: { name: string; provider: string; key: string }): Promise<void> =>
       invoke("add_api_key_entry", params),
-    remove: (keyId: string): Promise<unknown> => invoke("remove_api_key_entry", { keyId }),
-    setActive: (keyId: string): Promise<unknown> => invoke("set_active_api_key", { keyId }),
+    remove: (keyId: string): Promise<void> => invoke("remove_api_key_entry", { keyId }),
+    setActive: (keyId: string): Promise<void> => invoke("set_active_api_key", { keyId }),
   },
 
   usage: {
     getStats: (): Promise<UsageStats> => invoke("get_usage_stats"),
-    reset: (): Promise<unknown> => invoke("reset_usage_stats"),
+    reset: (): Promise<void> => invoke("reset_usage_stats"),
   },
 
   audio: {
@@ -116,13 +116,13 @@ export const tauriApi = {
   services: {
     listInstalled: (): Promise<string[]> => invoke("list_installed_ghosty_services"),
     install: (): Promise<string[]> => invoke("install_ghosty_services"),
-    openFolder: (): Promise<unknown> => invoke("open_services_folder"),
+    openFolder: (): Promise<void> => invoke("open_services_folder"),
   },
 
   recording: {
-    start: (): Promise<unknown> => invoke("start_recording"),
-    stop: (): Promise<unknown> => invoke("stop_recording"),
-    cancel: (): Promise<unknown> => invoke("cancel_transcription"),
+    start: (): Promise<void> => invoke("start_recording"),
+    stop: (): Promise<void> => invoke("stop_recording"),
+    cancel: (): Promise<void> => invoke("cancel_transcription"),
   },
 
   correction: {
@@ -141,16 +141,16 @@ export const tauriApi = {
   },
 
   window: {
-    setClickThrough: (ignore: boolean): Promise<unknown> =>
+    setClickThrough: (ignore: boolean): Promise<void> =>
       invoke("set_window_click_through", { ignore }),
-    focusFloatingIfCursorInside: (): Promise<unknown> =>
+    focusFloatingIfCursorInside: (): Promise<void> =>
       invoke("focus_floating_if_cursor_inside"),
     setFloatingBounds: (params: {
       x: number;
       y: number;
       width: number;
       height: number;
-    }): Promise<unknown> => invoke("set_floating_window_bounds", params),
+    }): Promise<void> => invoke("set_floating_window_bounds", params),
   },
 } as const;
 

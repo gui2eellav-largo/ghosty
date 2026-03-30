@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { uiClasses } from "@/lib/design-tokens";
@@ -46,7 +46,7 @@ export interface HomeViewProps {
   onOpenSettings: (section: SettingsSectionId) => void;
 }
 
-export function HomeView({
+export const HomeView = React.memo(function HomeView({
   modes,
   selectedMode,
   setSelectedMode,
@@ -196,16 +196,18 @@ export function HomeView({
   return (
     <div>
       {!hasApiKey && (
-        <p className="mb-6 text-sm text-muted-foreground">
+        <div className="mb-6 flex items-center gap-4 rounded-lg border border-orange-500/20 bg-orange-500/5 px-4 py-3">
+          <p className="flex-1 text-sm font-medium text-foreground">
+            {strings.home.setupApiKey}
+          </p>
           <button
             type="button"
             onClick={() => onOpenSettings("api")}
-            className="underline hover:no-underline font-medium text-black dark:text-white"
+            className="shrink-0 rounded-lg bg-orange-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
           >
-            {strings.home.setupApiKey}
-          </button>{" "}
-          {strings.home.toEnableTranscription}
-        </p>
+            {strings.home.openSettings}
+          </button>
+        </div>
       )}
       <header
         className={cn(uiClasses.pageHeaderMargin, "flex justify-between items-start")}
@@ -354,6 +356,12 @@ export function HomeView({
               )}
           </div>
 
+          {transcriptions.length === 0 && (
+            <p className="text-xs text-muted-foreground/50 leading-relaxed mb-4 max-w-md">
+              {strings.home.modeHintDirect}, {strings.home.modeHintShape}, {strings.home.modeHintReframe}, {strings.home.modeHintBuild}
+            </p>
+          )}
+
           <div className="h-20 bg-black/[0.02] dark:bg-white/[0.02] rounded-lg flex items-center px-6">
             <LiveWaveform
               active={isRecording}
@@ -494,4 +502,4 @@ export function HomeView({
       </section>
     </div>
   );
-}
+});

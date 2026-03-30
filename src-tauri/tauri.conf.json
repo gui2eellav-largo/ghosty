@@ -23,32 +23,34 @@
         "resizable": true,
         "fullscreen": false
       },
-    {
-      "label": "floating",
-      "title": "Ghosty",
-      "width": 28,
-      "height": 28,
-      "x": 0,
-      "y": 0,
-      "resizable": false,
-      "decorations": false,
-      "alwaysOnTop": true,
-      "visible": true,
-      "visibleOnAllWorkspaces": true,
-      "focus": false,
-      "transparent": true,
-      "shadow": false,
-      "skipTaskbar": true
-    }
+      {
+        "label": "floating",
+        "title": "Ghosty",
+        "width": 28,
+        "height": 28,
+        "x": 0,
+        "y": 0,
+        "resizable": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "visible": true,
+        "visibleOnAllWorkspaces": true,
+        "focus": false,
+        "transparent": true,
+        "shadow": false,
+        "skipTaskbar": true
+      }
     ],
     "security": {
       "csp": "default-src 'self' asset: https://asset.localhost; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ipc: https://api.openai.com https://*.openai.azure.com; img-src 'self' asset: https://asset.localhost blob: data:; font-src 'self'",
-      "capabilities": ["default"]
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["dmg", "app"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -62,11 +64,14 @@
       "exceptionDomain": "",
       "signingIdentity": null,
       "providerShortName": null,
-      "entitlements": null
+      "entitlements": null,
+      "infoPlist": "Info.plist"
     },
-    "resources": [],
+    "resources": [
+      "icons/*"
+    ],
     "externalBin": [],
-    "copyright": "",
+    "copyright": "Copyright 2026 Guillaume Vallee. All rights reserved.",
     "category": "Productivity",
     "shortDescription": "Voice-to-text with global hotkey",
     "longDescription": "Voice-to-text with recording triggered by global hotkey (hold key). Pre-prompt for context injection. Text to focused field or clipboard."
@@ -74,7 +79,9 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["ghosty"]
+        "schemes": [
+          "ghosty"
+        ]
       }
     },
     "updater": {

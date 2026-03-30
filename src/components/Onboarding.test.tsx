@@ -67,6 +67,7 @@ describe("Onboarding", () => {
     await waitFor(() => {
       expect(mockInvoke).toHaveBeenCalledWith("test_openai_key", {
         key: "sk-test1234567890",
+        provider: "openai",
       });
     });
     await waitFor(() => {

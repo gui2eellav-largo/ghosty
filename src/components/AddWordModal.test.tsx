@@ -33,7 +33,7 @@ describe("AddWordModal", () => {
   it("should submit a word successfully", async () => {
     render(<AddWordModal isOpen={true} onClose={onClose} onAdd={onAdd} />);
 
-    const input = screen.getByPlaceholderText("Add a new word");
+    const input = screen.getByPlaceholderText("e.g., API, GitHub, Kubernetes");
     fireEvent.change(input, { target: { value: "Ghosty" } });
     fireEvent.click(screen.getByText("Add word"));
 
@@ -96,7 +96,7 @@ describe("AddWordModal", () => {
   it("should reset form and close when Cancel is clicked", () => {
     render(<AddWordModal isOpen={true} onClose={onClose} onAdd={onAdd} />);
 
-    const input = screen.getByPlaceholderText("Add a new word");
+    const input = screen.getByPlaceholderText("e.g., API, GitHub, Kubernetes");
     fireEvent.change(input, { target: { value: "something" } });
 
     fireEvent.click(screen.getByText("Cancel"));
@@ -114,7 +114,7 @@ describe("AddWordModal", () => {
 
     render(<AddWordModal isOpen={true} onClose={onClose} onAdd={onAdd} />);
 
-    const input = screen.getByPlaceholderText("Add a new word");
+    const input = screen.getByPlaceholderText("e.g., API, GitHub, Kubernetes");
     fireEvent.change(input, { target: { value: "test" } });
     fireEvent.click(screen.getByText("Add word"));
 

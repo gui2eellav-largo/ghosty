@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Undo2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { strings } from "@/lib/strings";
@@ -86,8 +85,8 @@ export const SystemPromptEditor = ({
       >
         <IconButton
           icon={<Sparkles size={12} />}
-          aria-label={strings.systemPromptEditor.improvePrompt}
-          title={strings.systemPromptEditor.improvePrompt}
+          aria-label={strings.systemPromptEditor.improveInstructions}
+          title={strings.systemPromptEditor.improveInstructions}
           size="sm"
           disabled={!canImprove}
           onClick={handleImprove}
@@ -103,23 +102,15 @@ export const SystemPromptEditor = ({
           className="opacity-70 hover:opacity-100 disabled:opacity-40"
         />
       </div>
-      <AnimatePresence>
-        {isLoading && (
-          <motion.div
-            className="absolute inset-0 rounded border border-border bg-muted/50 backdrop-blur-[2px] flex items-center justify-center cursor-wait"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <motion.div
-              className="w-8 h-8 rounded-full border-2 border-foreground/20 border-t-foreground/60"
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isLoading && (
+        <div
+          className="absolute inset-0 rounded border border-border bg-muted/50 backdrop-blur-[2px] flex items-center justify-center cursor-wait animate-in fade-in duration-200"
+        >
+          <div
+            className="w-8 h-8 rounded-full border-2 border-foreground/20 border-t-foreground/60 animate-spin"
+          />
+        </div>
+      )}
     </div>
   );
 };

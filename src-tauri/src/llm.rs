@@ -73,6 +73,8 @@ OUTPUT:
 /// Transformation async avec streaming : accumule le contenu puis retourne le texte complet.
 /// Si `cancel` est déclenché, retourne Err("Annulé").
 /// `temperature_override` permet de forcer une température pour les modes built-in.
+/// If the primary provider (e.g. Groq) fails after all retries and an OpenAI key exists,
+/// automatically falls back to OpenAI and emits a `provider_fallback` event.
 pub async fn transform_text_streaming(
     text: &str,
     mode_prompt: &str,
@@ -85,7 +87,7 @@ pub async fn transform_text_streaming(
     }
 
     let mut attempt = 0;
-    loop {
+    let primary_error = loop {
         match transform_text_streaming_internal(text, mode_prompt, app, cancel.clone(), temperature_override).await {
             Ok(result) => return Ok(result),
             Err(e) if e == "Annulé" => return Err(e),
@@ -99,17 +101,135 @@ pub async fn transform_text_streaming(
                 tokio::time::sleep(backoff).await;
             }
             Err(e) => {
+                break e;
+            }
+        }
+    };
+
+    // Provider fallback: if primary was Groq, try OpenAI
+    let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
+    if prefs.llm.provider == "groq" && crate::secrets::get_api_key_cached().is_ok() {
+        eprintln!("Groq LLM failed, falling back to OpenAI: {}", primary_error);
+        let _ = app.emit("provider_fallback", "Groq → OpenAI");
+        match transform_text_streaming_openai_fallback(text, mode_prompt, app, cancel, temperature_override).await {
+            Ok(result) => return Ok(result),
+            Err(fallback_err) => {
                 return Err(format!(
-                    "Échec transformation après {} tentatives: {}",
-                    MAX_RETRIES, e
+                    "Échec transformation après {} tentatives (Groq: {}, OpenAI fallback: {})",
+                    MAX_RETRIES, primary_error, fallback_err
                 ));
             }
         }
     }
+
+    Err(format!(
+        "Échec transformation après {} tentatives: {}",
+        MAX_RETRIES, primary_error
+    ))
+}
+
+/// Single-attempt LLM call using OpenAI as fallback provider.
+async fn transform_text_streaming_openai_fallback(
+    text: &str,
+    mode_prompt: &str,
+    app: &tauri::AppHandle,
+    cancel: tokio_util::sync::CancellationToken,
+    temperature_override: Option<f32>,
+) -> Result<String, String> {
+    let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
+    let (api_key, base_url, model) = resolve_openai_fallback_config(&prefs)?;
+    let timeout_secs = prefs.llm.timeout_secs.clamp(15, 120);
+    let url = format!("{}/v1/chat/completions", base_url);
+    let temperature = temperature_override.unwrap_or(prefs.llm.temperature).clamp(0.0, 2.0);
+
+    let request = ChatRequest {
+        model,
+        messages: vec![
+            Message {
+                role: "system".to_string(),
+                content: build_system_prompt(mode_prompt),
+            },
+            Message {
+                role: "user".to_string(),
+                content: text.to_string(),
+            },
+        ],
+        temperature,
+        max_tokens: prefs.llm.max_tokens.clamp(100, 4096),
+        stream: true,
+    };
+
+    let resp = http_client::client()
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&request)
+        .timeout(Duration::from_secs(timeout_secs))
+        .send()
+        .await
+        .map_err(|e| format!("OpenAI fallback LLM request error: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("OpenAI fallback LLM error {}: {}", status, body));
+    }
+
+    let mut stream = resp.bytes_stream();
+    let mut buf = Vec::<u8>::new();
+    let mut content = String::new();
+
+    loop {
+        let chunk_result = tokio::select! {
+            _ = cancel.cancelled() => return Err("Annulé".to_string()),
+            next = stream.next() => next,
+        };
+        let Some(chunk_result) = chunk_result else {
+            break;
+        };
+        let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+        buf.extend_from_slice(&chunk);
+
+        while let Some((line, rest)) = parse_one_line(&buf) {
+            buf = rest;
+            if line.is_empty() {
+                continue;
+            }
+            if line.starts_with("data: ") {
+                let data = line.trim_start_matches("data: ").trim();
+                if data == "[DONE]" {
+                    return Ok(content.trim().to_string());
+                }
+                if let Ok(parsed) = serde_json::from_str::<StreamChunk>(data) {
+                    if let Some(choices) = parsed.choices {
+                        if let Some(choice) = choices.first() {
+                            if let Some(ref delta) = choice.delta.content {
+                                content.push_str(delta);
+                                let _ = app.emit("llm_chunk", content.trim().to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(content.trim().to_string())
 }
 
 fn build_system_prompt(mode_prompt: &str) -> String {
     mode_prompt.to_string()
+}
+
+/// Validate that a base URL uses HTTPS. Rejects plain HTTP to protect API keys in transit.
+fn validate_base_url(url: &str) -> Result<(), String> {
+    if url.starts_with("https://") {
+        Ok(())
+    } else if url.starts_with("http://") {
+        Err("Insecure base URL rejected: plain HTTP is not allowed for API endpoints that transmit API keys. Use https:// instead.".to_string())
+    } else {
+        Err(format!("Invalid base URL '{}': must start with https://", url))
+    }
 }
 
 /// Resolve LLM provider config: API key, base URL, and model.
@@ -124,6 +244,7 @@ fn resolve_llm_config(prefs: &crate::preferences::Preferences) -> Result<(String
                 .unwrap_or("https://api.groq.com/openai")
                 .trim_end_matches('/')
                 .to_string();
+            validate_base_url(&url)?;
             // Default to llama-3.1-8b-instant if user hasn't picked a Groq model
             let model = if prefs.llm.model.starts_with("llama") || prefs.llm.model.starts_with("mixtral") || prefs.llm.model.starts_with("qwen") {
                 prefs.llm.model.clone()
@@ -139,9 +260,22 @@ fn resolve_llm_config(prefs: &crate::preferences::Preferences) -> Result<(String
                 .unwrap_or("https://api.openai.com")
                 .trim_end_matches('/')
                 .to_string();
+            validate_base_url(&url)?;
             Ok((key, url, prefs.llm.model.clone()))
         }
     }
+}
+
+/// Resolve LLM config specifically for OpenAI fallback (ignores current provider setting).
+fn resolve_openai_fallback_config(prefs: &crate::preferences::Preferences) -> Result<(String, String, String), String> {
+    let key = crate::secrets::get_api_key_cached()?;
+    let url = prefs.advanced.llm_base_url
+        .as_deref()
+        .unwrap_or("https://api.openai.com")
+        .trim_end_matches('/')
+        .to_string();
+    validate_base_url(&url)?;
+    Ok((key, url, "gpt-4o-mini".to_string()))
 }
 
 async fn transform_text_streaming_internal(
@@ -426,5 +560,26 @@ mod tests {
     fn test_improve_system_prompt_meta_not_empty() {
         assert!(!IMPROVE_SYSTEM_PROMPT_META.is_empty());
         assert!(IMPROVE_SYSTEM_PROMPT_META.contains("expert"));
+    }
+
+    // ── validate_base_url ──────────────────────────────────────────
+
+    #[test]
+    fn test_validate_base_url_https_ok() {
+        assert!(validate_base_url("https://api.openai.com").is_ok());
+        assert!(validate_base_url("https://api.groq.com/openai").is_ok());
+    }
+
+    #[test]
+    fn test_validate_base_url_http_rejected() {
+        let result = validate_base_url("http://api.openai.com");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("plain HTTP"));
+    }
+
+    #[test]
+    fn test_validate_base_url_invalid_scheme() {
+        assert!(validate_base_url("ftp://example.com").is_err());
+        assert!(validate_base_url("api.openai.com").is_err());
     }
 }

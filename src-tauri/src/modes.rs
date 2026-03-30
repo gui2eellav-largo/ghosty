@@ -81,7 +81,7 @@ pub fn default_modes() -> Vec<ModeConfig> {
         ModeConfig {
             id: "light".to_string(),
             name: "Direct".to_string(),
-            description: "Transcription propre : fillers supprimés, ponctuation, prêt à coller.".to_string(),
+            description: "Clean transcription: filler words removed, punctuation added, ready to paste.".to_string(),
             color: "#3b82f6".to_string(),
             system_prompt: String::new(),
             enabled: true,

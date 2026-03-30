@@ -210,16 +210,53 @@ fn preferences_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .map(|p| p.join(PREFERENCES_FILENAME))
 }
 
+fn backup_path(path: &std::path::Path) -> PathBuf {
+    path.with_extension("backup.json")
+}
+
 fn load_from_file(path: &std::path::Path) -> Preferences {
-    std::fs::read_to_string(path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    match std::fs::read_to_string(path) {
+        Ok(s) => match serde_json::from_str(&s) {
+            Ok(prefs) => prefs,
+            Err(_parse_err) => {
+                // Primary file is corrupted — try loading from backup
+                let bp = backup_path(path);
+                eprintln!(
+                    "[preferences] JSON parse failed for {:?}, trying backup {:?}",
+                    path, bp
+                );
+                match std::fs::read_to_string(&bp) {
+                    Ok(bs) => match serde_json::from_str(&bs) {
+                        Ok(prefs) => {
+                            eprintln!("[preferences] WARNING: loaded preferences from backup file");
+                            prefs
+                        }
+                        Err(_) => {
+                            eprintln!("[preferences] backup also corrupted, using defaults");
+                            Preferences::default()
+                        }
+                    },
+                    Err(_) => {
+                        eprintln!("[preferences] no backup found, using defaults");
+                        Preferences::default()
+                    }
+                }
+            }
+        },
+        Err(_) => Preferences::default(),
+    }
 }
 
 fn save_to_file(path: &std::path::Path, prefs: &Preferences) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    // Create backup of current file before overwriting
+    if path.exists() {
+        let bp = backup_path(path);
+        if let Err(e) = std::fs::copy(path, &bp) {
+            eprintln!("[preferences] failed to create backup: {}", e);
+        }
     }
     std::fs::write(
         path,
@@ -560,5 +597,49 @@ mod tests {
         std::fs::write(&path, "not valid json!!!").unwrap();
         let prefs = load_from_file(&path);
         assert_eq!(prefs.llm.model, "gpt-4o-mini");
+    }
+
+    // ── Backup / restore ───────────────────────────────────────────
+
+    #[test]
+    fn test_save_creates_backup() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("prefs.json");
+        let bp = backup_path(&path);
+
+        // First save — no backup yet (no previous file)
+        let prefs = Preferences::default();
+        save_to_file(&path, &prefs).unwrap();
+        assert!(!bp.exists(), "backup should not exist after first save");
+
+        // Second save — backup should be created
+        let mut prefs2 = Preferences::default();
+        prefs2.general.launch_at_login = true;
+        save_to_file(&path, &prefs2).unwrap();
+        assert!(bp.exists(), "backup should exist after second save");
+
+        // Backup should contain the FIRST save's content
+        let backup_prefs = load_from_file(&bp);
+        assert!(!backup_prefs.general.launch_at_login);
+    }
+
+    #[test]
+    fn test_load_from_corrupted_falls_back_to_backup() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("prefs.json");
+        let bp = backup_path(&path);
+
+        // Write valid backup
+        let mut prefs = Preferences::default();
+        prefs.llm.temperature = 0.99;
+        let json = serde_json::to_string_pretty(&prefs).unwrap();
+        std::fs::write(&bp, &json).unwrap();
+
+        // Write corrupted primary
+        std::fs::write(&path, "CORRUPTED{{{").unwrap();
+
+        // Load should fall back to backup
+        let loaded = load_from_file(&path);
+        assert!((loaded.llm.temperature - 0.99).abs() < f32::EPSILON);
     }
 }

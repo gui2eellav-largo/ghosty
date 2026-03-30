@@ -11,6 +11,28 @@ const KEYS_ACCOUNT: &str = "api_keys_store";
 /// Cache en mémoire pour la clé API (évite lectures keychain répétées)
 static API_KEY_CACHE: Lazy<RwLock<Option<String>>> = Lazy::new(|| RwLock::new(None));
 
+/// Default timeout for keychain operations (5 seconds).
+const KEYCHAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// Run a blocking keychain operation with a timeout to prevent indefinite hangs.
+/// Spawns the operation on a background thread and waits with `recv_timeout`.
+/// The closure should return `Result<T, String>` — the outer Result handles the timeout.
+fn with_keychain_timeout<F, T>(op: F) -> Result<T, String>
+where
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+    T: Send + 'static,
+{
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let result = op();
+        let _ = tx.send(result);
+    });
+    match rx.recv_timeout(KEYCHAIN_TIMEOUT) {
+        Ok(inner_result) => inner_result,
+        Err(_) => Err("Keychain operation timed out. The system keychain may be locked or unresponsive.".to_string()),
+    }
+}
+
 /// Structure pour une entrée de clé API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApiKeyEntry {
@@ -107,22 +129,24 @@ fn validate_custom_key(key: &str) -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 pub fn set_api_key(key: String) -> Result<(), String> {
-    use security_framework::passwords::*;
-
     // Validation avant stockage
     validate_openai_key(&key)?;
 
-    // Supprimer ancienne clé si existe
-    let _ = delete_generic_password(SERVICE_NAME, OPENAI_ACCOUNT);
+    with_keychain_timeout(move || {
+        use security_framework::passwords::*;
 
-    // Stocker dans keychain
-    set_generic_password(SERVICE_NAME, OPENAI_ACCOUNT, key.as_bytes())
-        .map_err(|e| format!("Erreur stockage keychain: {}", e))?;
+        // Supprimer ancienne clé si existe
+        let _ = delete_generic_password(SERVICE_NAME, OPENAI_ACCOUNT);
 
-    // Invalider cache
-    invalidate_cache();
+        // Stocker dans keychain
+        set_generic_password(SERVICE_NAME, OPENAI_ACCOUNT, key.as_bytes())
+            .map_err(|e| format!("Erreur stockage keychain: {}", e))?;
 
-    Ok(())
+        // Invalider cache
+        invalidate_cache();
+
+        Ok(())
+    })
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -132,26 +156,28 @@ pub fn set_api_key(_key: String) -> Result<(), String> {
 
 #[cfg(target_os = "macos")]
 pub fn get_api_key() -> Result<String, String> {
-    use security_framework::passwords::*;
+    with_keychain_timeout(|| {
+        use security_framework::passwords::*;
 
-    // Essayer keychain d'abord
-    match get_generic_password(SERVICE_NAME, OPENAI_ACCOUNT) {
-        Ok(password_bytes) => {
-            let key = String::from_utf8_lossy(&password_bytes).to_string();
+        // Essayer keychain d'abord
+        match get_generic_password(SERVICE_NAME, OPENAI_ACCOUNT) {
+            Ok(password_bytes) => {
+                let key = String::from_utf8_lossy(&password_bytes).to_string();
 
-            // Validation après récupération
-            validate_openai_key(&key)?;
+                // Validation après récupération
+                validate_openai_key(&key)?;
 
-            Ok(key)
+                Ok(key)
+            }
+            Err(_) => {
+                // Fallback: variable d'environnement (pour développement)
+                std::env::var("OPENAI_API_KEY")
+                    .map_err(|_| {
+                        "Clé API non configurée. Utilisez les paramètres pour configurer votre clé OpenAI.".to_string()
+                    })
+            }
         }
-        Err(_) => {
-            // Fallback: variable d'environnement (pour développement)
-            std::env::var("OPENAI_API_KEY")
-                .map_err(|_| {
-                    "Clé API non configurée. Utilisez les paramètres pour configurer votre clé OpenAI.".to_string()
-                })
-        }
-    }
+    })
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -162,15 +188,17 @@ pub fn get_api_key() -> Result<String, String> {
 
 #[cfg(target_os = "macos")]
 pub fn delete_api_key() -> Result<(), String> {
-    use security_framework::passwords::*;
+    with_keychain_timeout(|| {
+        use security_framework::passwords::*;
 
-    delete_generic_password(SERVICE_NAME, OPENAI_ACCOUNT)
-        .map_err(|e| format!("Erreur suppression keychain: {}", e))?;
+        delete_generic_password(SERVICE_NAME, OPENAI_ACCOUNT)
+            .map_err(|e| format!("Erreur suppression keychain: {}", e))?;
 
-    // Invalider cache
-    invalidate_cache();
+        // Invalider cache
+        invalidate_cache();
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -211,39 +239,43 @@ pub fn get_api_key_cached() -> Result<String, String> {
 /// Récupère la configuration multi-clés depuis le keychain
 #[cfg(target_os = "macos")]
 fn get_keys_config() -> Result<KeysConfig, String> {
-    use security_framework::passwords::*;
+    with_keychain_timeout(|| {
+        use security_framework::passwords::*;
 
-    match get_generic_password(SERVICE_NAME, KEYS_ACCOUNT) {
-        Ok(config_bytes) => {
-            let config_str = String::from_utf8_lossy(&config_bytes).to_string();
-            serde_json::from_str(&config_str).map_err(|e| format!("Erreur parsing config: {}", e))
+        match get_generic_password(SERVICE_NAME, KEYS_ACCOUNT) {
+            Ok(config_bytes) => {
+                let config_str = String::from_utf8_lossy(&config_bytes).to_string();
+                serde_json::from_str(&config_str).map_err(|e| format!("Erreur parsing config: {}", e))
+            }
+            Err(_) => {
+                // Pas de config multi-clés, retourner config vide
+                Ok(KeysConfig {
+                    keys: vec![],
+                    active_key_id: String::new(),
+                })
+            }
         }
-        Err(_) => {
-            // Pas de config multi-clés, retourner config vide
-            Ok(KeysConfig {
-                keys: vec![],
-                active_key_id: String::new(),
-            })
-        }
-    }
+    })
 }
 
 /// Sauvegarde la configuration multi-clés dans le keychain
 #[cfg(target_os = "macos")]
 fn save_keys_config(config: &KeysConfig) -> Result<(), String> {
-    use security_framework::passwords::*;
-
     let config_json =
         serde_json::to_string(config).map_err(|e| format!("Erreur serialization: {}", e))?;
 
-    // Supprimer ancienne config si existe
-    let _ = delete_generic_password(SERVICE_NAME, KEYS_ACCOUNT);
+    with_keychain_timeout(move || {
+        use security_framework::passwords::*;
 
-    // Stocker nouvelle config
-    set_generic_password(SERVICE_NAME, KEYS_ACCOUNT, config_json.as_bytes())
-        .map_err(|e| format!("Erreur stockage config: {}", e))?;
+        // Supprimer ancienne config si existe
+        let _ = delete_generic_password(SERVICE_NAME, KEYS_ACCOUNT);
 
-    Ok(())
+        // Stocker nouvelle config
+        set_generic_password(SERVICE_NAME, KEYS_ACCOUNT, config_json.as_bytes())
+            .map_err(|e| format!("Erreur stockage config: {}", e))?;
+
+        Ok(())
+    })
 }
 
 /// Ajoute une nouvelle clé API
@@ -505,14 +537,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_api_key_invalid_format() {
-        let result = test_api_key("invalid-key").await;
+        let result = test_api_key("invalid-key", "openai").await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Format"));
     }
 
     #[tokio::test]
     async fn test_api_key_short() {
-        let result = test_api_key("sk-short").await;
+        let result = test_api_key("sk-short", "openai").await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("courte"));
     }
@@ -522,7 +554,7 @@ mod tests {
     #[ignore] // Ignoré par défaut, run avec: cargo test -- --ignored
     async fn test_api_key_real() {
         if let Ok(key) = std::env::var("OPENAI_API_KEY") {
-            let result = test_api_key(&key).await;
+            let result = test_api_key(&key, "openai").await;
             assert!(result.is_ok());
         }
     }

@@ -36,12 +36,16 @@ fn is_whisper_hallucination(text: &str) -> bool {
 }
 
 /// Transcription async à partir du WAV en mémoire. Retries avec backoff.
+/// If the primary provider (e.g. Groq) fails after all retries and an OpenAI key exists,
+/// automatically falls back to OpenAI and emits a `provider_fallback` event.
 pub async fn transcribe_bytes(
     wav_bytes: Vec<u8>,
     app: &tauri::AppHandle,
 ) -> Result<String, String> {
+    use tauri::Emitter;
+
     let mut attempt = 0;
-    loop {
+    let primary_error = loop {
         match transcribe_bytes_internal(&wav_bytes, app).await {
             Ok(result) => return Ok(result),
             Err(e) if attempt < MAX_RETRIES => {
@@ -54,12 +58,98 @@ pub async fn transcribe_bytes(
                 tokio::time::sleep(backoff).await;
             }
             Err(e) => {
+                break e;
+            }
+        }
+    };
+
+    // Provider fallback: if primary was Groq, try OpenAI
+    let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
+    if prefs.transcription.provider == "groq" && crate::secrets::get_api_key_cached().is_ok() {
+        eprintln!("Groq transcription failed, falling back to OpenAI: {}", primary_error);
+        let _ = app.emit("provider_fallback", "Groq → OpenAI");
+        match transcribe_bytes_openai_fallback(&wav_bytes, app).await {
+            Ok(result) => return Ok(result),
+            Err(fallback_err) => {
                 return Err(format!(
-                    "Échec transcription après {} tentatives: {}",
-                    MAX_RETRIES, e
+                    "Échec transcription après {} tentatives (Groq: {}, OpenAI fallback: {})",
+                    MAX_RETRIES, primary_error, fallback_err
                 ));
             }
         }
+    }
+
+    Err(format!(
+        "Échec transcription après {} tentatives: {}",
+        MAX_RETRIES, primary_error
+    ))
+}
+
+/// Fallback transcription using OpenAI when primary provider fails.
+async fn transcribe_bytes_openai_fallback(
+    wav_bytes: &[u8],
+    app: &tauri::AppHandle,
+) -> Result<String, String> {
+    let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
+    let api_key = crate::secrets::get_api_key_cached()?;
+    let base_url = prefs.advanced.transcription_base_url
+        .as_deref()
+        .unwrap_or("https://api.openai.com")
+        .trim_end_matches('/')
+        .to_string();
+    validate_base_url(&base_url)?;
+    let timeout_secs = prefs.transcription.timeout_secs.clamp(10, 120);
+    let url = format!("{}/v1/audio/transcriptions", base_url);
+
+    let part = reqwest::multipart::Part::bytes(wav_bytes.to_vec())
+        .file_name("audio.wav")
+        .mime_str("audio/wav")
+        .map_err(|e| e.to_string())?;
+
+    let mut form = reqwest::multipart::Form::new()
+        .part("file", part)
+        .text("model", "whisper-1".to_string());
+    let lang = prefs.transcription.language.as_deref().unwrap_or("fr");
+    if !lang.is_empty() {
+        form = form.text("language", lang.to_string());
+    }
+
+    let dict_prompt = crate::dictionary::build_whisper_prompt(app);
+    if !dict_prompt.is_empty() {
+        form = form.text("prompt", dict_prompt);
+    }
+
+    let resp = http_client::client()
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .multipart(form)
+        .timeout(Duration::from_secs(timeout_secs))
+        .send()
+        .await
+        .map_err(|e| format!("OpenAI fallback request error: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("OpenAI fallback API error {}: {}", status, body));
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Transcription {
+        text: String,
+    }
+    let out: Transcription = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(out.text.trim().to_string())
+}
+
+/// Validate that a base URL uses HTTPS. Rejects plain HTTP to protect API keys in transit.
+fn validate_base_url(url: &str) -> Result<(), String> {
+    if url.starts_with("https://") {
+        Ok(())
+    } else if url.starts_with("http://") {
+        Err("Insecure base URL rejected: plain HTTP is not allowed for API endpoints that transmit API keys. Use https:// instead.".to_string())
+    } else {
+        Err(format!("Invalid base URL '{}': must start with https://", url))
     }
 }
 
@@ -81,6 +171,7 @@ async fn transcribe_bytes_internal(
                 .unwrap_or("https://api.groq.com/openai")
                 .trim_end_matches('/')
                 .to_string();
+            validate_base_url(&url)?;
             // Groq supports whisper-large-v3-turbo (fastest) and whisper-large-v3
             let model = if prefs.transcription.model.starts_with("whisper-large") {
                 prefs.transcription.model.clone()
@@ -97,6 +188,7 @@ async fn transcribe_bytes_internal(
                 .unwrap_or("https://api.openai.com")
                 .trim_end_matches('/')
                 .to_string();
+            validate_base_url(&url)?;
             (key, url, prefs.transcription.model.clone())
         }
     };
@@ -299,6 +391,27 @@ mod tests {
     #[test]
     fn test_single_period_not_hallucination() {
         assert!(!is_whisper_hallucination("."));
+    }
+
+    // ── validate_base_url ──────────────────────────────────────────
+
+    #[test]
+    fn test_validate_base_url_https_ok() {
+        assert!(validate_base_url("https://api.openai.com").is_ok());
+        assert!(validate_base_url("https://api.groq.com/openai").is_ok());
+    }
+
+    #[test]
+    fn test_validate_base_url_http_rejected() {
+        let result = validate_base_url("http://api.openai.com");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("plain HTTP"));
+    }
+
+    #[test]
+    fn test_validate_base_url_invalid_scheme() {
+        assert!(validate_base_url("ftp://example.com").is_err());
+        assert!(validate_base_url("api.openai.com").is_err());
     }
 
     #[test]

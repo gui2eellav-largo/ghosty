@@ -578,7 +578,7 @@ export default function FloatingBar() {
               />
             </div>
 
-            <div 
+            <div
               ref={dotRef}
               tabIndex={0}
               role="button"
@@ -604,24 +604,37 @@ export default function FloatingBar() {
                 }
               }}
               className={cn(
-                "w-[6px] h-[6px] rounded-full flex-shrink-0",
+                "relative flex-shrink-0 flex items-center justify-center",
+                "w-[44px] h-[44px] -m-[19px]",
                 isMenuOpen ? "cursor-pointer" : "cursor-ns-resize",
-                "hover:scale-[1.4] active:scale-110",
                 "transition-[transform,box-shadow] duration-200 ease-out",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-                voiceState === "idle" && !isHoverOrActive && "animate-breathe"
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:rounded-full",
               )}
-              style={{
-                backgroundColor: selectedModeConfig?.color ?? "#10b981",
-                boxShadow: `0 0 8px 1px ${selectedModeConfig?.color ?? "#10b981"}40`,
-              }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = `0 0 6px 1px ${selectedModeConfig?.color ?? "#10b981"}60`;
+                const dot = e.currentTarget.querySelector<HTMLElement>('[data-dot]');
+                if (dot) dot.style.boxShadow = `0 0 6px 1px ${selectedModeConfig?.color ?? "#10b981"}60`;
+                dot?.style.setProperty('transform', 'scale(1.4)');
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = `0 0 8px 1px ${selectedModeConfig?.color ?? "#10b981"}40`;
+                const dot = e.currentTarget.querySelector<HTMLElement>('[data-dot]');
+                if (dot) dot.style.boxShadow = `0 0 8px 1px ${selectedModeConfig?.color ?? "#10b981"}40`;
+                dot?.style.setProperty('transform', 'scale(1)');
               }}
-            />
+            >
+              <div
+                data-dot
+                className={cn(
+                  "w-[6px] h-[6px] rounded-full",
+                  "transition-[transform,box-shadow] duration-200 ease-out",
+                  voiceState === "idle" && !isHoverOrActive && "animate-breathe"
+                )}
+                style={{
+                  backgroundColor: selectedModeConfig?.color ?? "#10b981",
+                  boxShadow: `0 0 8px 1px ${selectedModeConfig?.color ?? "#10b981"}40`,
+                }}
+                aria-hidden
+              />
+            </div>
           </div>
           </div>
         </div>
@@ -706,7 +719,7 @@ export default function FloatingBar() {
             }}
           >
             {modes.length === 0 ? (
-              <div className="px-3 py-2 text-xs text-white/50">{strings.floatingBar.loading}</div>
+              <div className="px-3 py-2 text-xs text-white/70">{strings.floatingBar.loading}</div>
             ) : (
             modes.map((mode, i) => (
               <button
@@ -737,7 +750,7 @@ export default function FloatingBar() {
                 />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{mode.name}</div>
-                  <div className="text-[10px] text-white/30 truncate">{mode.description}</div>
+                  <div className="text-[10px] text-white/50 truncate">{mode.description}</div>
                 </div>
               </button>
             )))

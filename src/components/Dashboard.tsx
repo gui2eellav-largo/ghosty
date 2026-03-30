@@ -149,10 +149,7 @@ export default function Dashboard() {
 
   // ---------- Init on mount ----------
   useEffect(() => {
-    loadApiKeys();
-    loadModes();
-    loadShortcuts();
-    loadDictionaryEntries();
+    Promise.all([loadApiKeys(), loadModes(), loadShortcuts(), loadDictionaryEntries()]);
     // Auto-update check on mount (silent)
     api.preferences.get().then((prefs) => {
       if (prefs.general.autoUpdate) {
@@ -470,6 +467,24 @@ export default function Dashboard() {
     []
   );
 
+  const handleCloseNotificationsPanel = useCallback(() => {
+    setIsNotificationsPanelOpen(false);
+  }, []);
+
+  const handleCloseProfilePopover = useCallback(() => {
+    setIsProfilePopoverOpen(false);
+  }, []);
+
+  const handleManageAccount = useCallback(() => {
+    setIsSettingsModalOpen(true);
+    setActiveSettingsSection("account");
+    setIsProfilePopoverOpen(false);
+  }, []);
+
+  const handleCloseSettingsModal = useCallback(() => {
+    setIsSettingsModalOpen(false);
+  }, []);
+
   const NavItem = ({ id, label, icon: Icon }: { id: View; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }) => (
     <button
       onClick={() => setActiveView(id)}
@@ -491,8 +506,8 @@ export default function Dashboard() {
       <aside className="w-64 border-r border-black/[0.06] dark:border-white/[0.06] flex flex-col bg-white dark:bg-[#0c0c0c] shrink-0">
         <div className="p-4">
           <div className="flex items-center gap-2 mb-6 select-none">
-            <img src="/ghosty-logo.png" alt="Ghosty" className="w-7 h-7 object-contain" />
-            <span className="text-sm font-black tracking-widest uppercase">{strings.app.name}</span>
+            <img src="/ghosty-logo.png" alt="Ghosty" className="w-9 h-9 object-contain" />
+            <span className="font-bold text-[17px] tracking-[2px] lowercase font-mono">{strings.app.name}<span className="inline-block w-[1.5px] h-[17px] bg-sky-300 ml-[3px] align-middle" /></span>
           </div>
 
           <nav className="space-y-1">
@@ -547,7 +562,7 @@ export default function Dashboard() {
             </button>
             <NotificationsPanel
               isOpen={isNotificationsPanelOpen}
-              onClose={() => setIsNotificationsPanelOpen(false)}
+              onClose={handleCloseNotificationsPanel}
               correctionNotifications={correctionNotifications}
               onAcceptCorrection={handleAcceptCorrectionNotification}
               onDismissCorrection={handleDismissCorrectionNotification}
@@ -577,16 +592,12 @@ export default function Dashboard() {
             </button>
             <ProfilePopover
               isOpen={isProfilePopoverOpen}
-              onClose={() => setIsProfilePopoverOpen(false)}
+              onClose={handleCloseProfilePopover}
               displayName={preferences?.general?.displayName ?? ""}
               wordsGenerated={
                 usageStats ? Math.round((usageStats.tokens_output || 0) / 4) : 0
               }
-              onManageAccount={() => {
-                setIsSettingsModalOpen(true);
-                setActiveSettingsSection("account");
-                setIsProfilePopoverOpen(false);
-              }}
+              onManageAccount={handleManageAccount}
             />
           </div>
         </div>
@@ -686,7 +697,7 @@ export default function Dashboard() {
       {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
+        onClose={handleCloseSettingsModal}
       >
         <div className="flex flex-1 min-h-0">
           {/* Sidebar Navigation */}
