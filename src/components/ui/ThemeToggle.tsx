@@ -89,60 +89,19 @@ export function ThemeToggle() {
       onClick={(e) => toggle(e)}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "relative flex items-center w-[52px] h-[26px] rounded-full p-[3px]",
-        "transition-all duration-500 ease-out",
+        "flex items-center justify-center w-8 h-8 rounded-lg",
+        "text-muted-foreground hover:text-foreground",
+        "hover:bg-black/5 dark:hover:bg-white/5",
+        "transition-colors duration-200",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
-        isDark
-          ? "focus-visible:ring-white/30"
-          : "focus-visible:ring-black/20",
+        isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/20",
       )}
-      style={{
-        background: isDark
-          ? "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)"
-          : "linear-gradient(135deg, #f8b500 0%, #fceabb 50%, #f8b500 100%)",
-        boxShadow: isDark
-          ? "inset 0 1px 3px rgba(0,0,0,0.4), 0 0 8px rgba(15,52,96,0.3)"
-          : "inset 0 1px 3px rgba(0,0,0,0.08), 0 0 8px rgba(248,181,0,0.2)",
-      }}
     >
-      {/* Track icons — faint behind the thumb */}
-      <Sun
-        size={10}
-        className={cn(
-          "absolute left-[7px] top-1/2 -translate-y-1/2 transition-opacity duration-300",
-          isDark ? "opacity-20 text-white/40" : "opacity-0",
-        )}
-      />
-      <Moon
-        size={10}
-        className={cn(
-          "absolute right-[7px] top-1/2 -translate-y-1/2 transition-opacity duration-300",
-          isDark ? "opacity-0" : "opacity-20 text-black/30",
-        )}
-      />
-
-      {/* Thumb */}
-      <div
-        className={cn(
-          "flex items-center justify-center w-[20px] h-[20px] rounded-full",
-          "transition-all duration-500 ease-out",
-          isDark ? "translate-x-[26px]" : "translate-x-0",
-        )}
-        style={{
-          background: isDark
-            ? "linear-gradient(135deg, #e2e8f0, #cbd5e1)"
-            : "linear-gradient(135deg, #ffffff, #fef9ef)",
-          boxShadow: isDark
-            ? "0 1px 4px rgba(0,0,0,0.4)"
-            : "0 1px 4px rgba(0,0,0,0.12)",
-        }}
-      >
-        {isDark ? (
-          <Moon size={11} className="text-slate-700" strokeWidth={2.5} />
-        ) : (
-          <Sun size={11} className="text-amber-500" strokeWidth={2.5} />
-        )}
-      </div>
+      {isDark ? (
+        <Moon size={16} strokeWidth={1.8} />
+      ) : (
+        <Sun size={16} strokeWidth={1.8} />
+      )}
     </button>
   );
 }

@@ -1,9 +1,15 @@
 import { useEffect } from "react";
-import { Plus, X } from "lucide-react";
+import { ArrowDownCircle, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { strings } from "@/lib/strings";
 import { IconButton } from "./ui/icon-button";
 import type { CorrectionNotification } from "@/types";
+
+export interface UpdateInfo {
+  available: boolean;
+  version?: string;
+  body?: string;
+}
 
 export interface NotificationsPanelProps {
   isOpen: boolean;
@@ -11,6 +17,9 @@ export interface NotificationsPanelProps {
   correctionNotifications: CorrectionNotification[];
   onAcceptCorrection: (n: CorrectionNotification) => void;
   onDismissCorrection: (id: string) => void;
+  updateInfo?: UpdateInfo | null;
+  onInstallUpdate?: () => void;
+  updateStatus?: "idle" | "checking" | "installing" | "done" | "error";
 }
 
 export function NotificationsPanel({
@@ -19,6 +28,9 @@ export function NotificationsPanel({
   correctionNotifications,
   onAcceptCorrection,
   onDismissCorrection,
+  updateInfo,
+  onInstallUpdate,
+  updateStatus = "idle",
 }: NotificationsPanelProps) {
   useEffect(() => {
     if (!isOpen) return;
@@ -32,7 +44,8 @@ export function NotificationsPanel({
 
   if (!isOpen) return null;
 
-  const isEmpty = correctionNotifications.length === 0;
+  const hasUpdate = updateInfo?.available && updateStatus !== "done";
+  const isEmpty = correctionNotifications.length === 0 && !hasUpdate;
 
   return (
     <div
@@ -47,6 +60,32 @@ export function NotificationsPanel({
         <h2 className="text-sm font-semibold text-foreground">{strings.notifications.title}</h2>
       </div>
       <div className="flex-1 overflow-auto p-4">
+        {hasUpdate && (
+          <div
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 rounded-lg mb-2",
+              "border border-sky-500/20 bg-sky-500/5"
+            )}
+          >
+            <ArrowDownCircle size={16} className="shrink-0 text-sky-500" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-foreground truncate">
+                Mise à jour disponible{updateInfo?.version ? ` — v${updateInfo.version}` : ""}
+              </p>
+              {updateInfo?.body && (
+                <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">{updateInfo.body}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onInstallUpdate}
+              disabled={updateStatus === "installing"}
+              className="shrink-0 rounded-md bg-sky-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-sky-600 disabled:opacity-50 transition-colors"
+            >
+              {updateStatus === "installing" ? "Installation…" : "Installer"}
+            </button>
+          </div>
+        )}
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <div

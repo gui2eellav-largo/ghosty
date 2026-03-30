@@ -306,6 +306,8 @@ export default function FloatingBar() {
         newIndex = Math.min(modes.length - 1, currentIndex + 1);
       }
       const newMode = modes[newIndex];
+      // Skip modes that require LLM when no API key is configured
+      if (newMode && newMode.id !== "light" && !hasApiKey) return;
       if (newMode && newMode.id !== selectedMode) {
         setSelectedMode(newMode.id as Mode);
         setSelectedModeConfig(newMode);
@@ -762,17 +764,23 @@ export default function FloatingBar() {
             {modes.length === 0 ? (
               <div className="px-3 py-2 text-xs text-white/70">{strings.floatingBar.loading}</div>
             ) : (
-            modes.map((mode, i) => (
+            modes.map((mode, i) => {
+              const needsLlm = mode.id !== "light";
+              const locked = needsLlm && !hasApiKey;
+              return (
               <button
                 key={mode.id}
                 role="menuitem"
-                onClick={() => handleModeSelect(mode)}
+                onClick={() => !locked && handleModeSelect(mode)}
+                disabled={locked}
+                title={locked ? "API key required — add one in Settings → API Keys" : undefined}
                 className={cn(
                   "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left",
                   "text-xs text-white/80 transition-colors duration-150",
                   "hover:bg-white/[0.07]",
                   "floating-menu-enter",
-                  selectedMode === mode.id && "bg-white/[0.08]"
+                  selectedMode === mode.id && "bg-white/[0.08]",
+                  locked && "opacity-35 cursor-not-allowed hover:bg-transparent"
                 )}
                 style={{
                   animationDelay: `${i * 28}ms`,
@@ -790,11 +798,15 @@ export default function FloatingBar() {
                   }}
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium truncate">{mode.name}</div>
+                  <div className="font-medium truncate">
+                    {mode.name}
+                    {locked && <span className="ml-1 text-[9px] text-white/30">🔒</span>}
+                  </div>
                   <div className="text-[10px] text-white/50 truncate">{mode.description}</div>
                 </div>
               </button>
-            )))
+              );
+            }))
             }
           </div>
         )}

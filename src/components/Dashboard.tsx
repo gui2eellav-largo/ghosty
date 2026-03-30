@@ -144,20 +144,17 @@ export default function Dashboard() {
   const [isNotificationsPanelOpen, setIsNotificationsPanelOpen] = useState(false);
   const [promptImproveToast, setPromptImproveToast] = useState<string | null>(null);
 
-  const notificationsUnreadCount = correctionNotifications.length;
+  const hasUpdateNotification = updateInfo?.available && updateStatus !== "done";
+  const notificationsUnreadCount = correctionNotifications.length + (hasUpdateNotification ? 1 : 0);
   const profilePopoverRef = useRef<HTMLDivElement>(null);
   const notificationsPanelRef = useRef<HTMLDivElement>(null);
 
   // ---------- Init on mount ----------
   useEffect(() => {
     Promise.all([loadApiKeys(), loadModes(), loadShortcuts(), loadDictionaryEntries()]);
-    // Auto-update check on mount (silent)
-    api.preferences.get().then((prefs) => {
-      if (prefs.general.autoUpdate) {
-        api.updater.check().then((info) => {
-          if (info.available) setUpdateInfo(info);
-        }).catch(() => {});
-      }
+    // Auto-update check on mount (always — banner shown if update available)
+    api.updater.check().then((info) => {
+      if (info.available) setUpdateInfo(info);
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
@@ -486,6 +483,16 @@ export default function Dashboard() {
     setIsSettingsModalOpen(false);
   }, []);
 
+  const handleInstallUpdate = useCallback(async () => {
+    setUpdateStatus("installing");
+    try {
+      await api.updater.install();
+      setUpdateStatus("done");
+    } catch {
+      setUpdateStatus("error");
+    }
+  }, [setUpdateStatus]);
+
   const NavItem = ({ id, label, icon: Icon }: { id: View; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }) => (
     <button
       onClick={() => setActiveView(id)}
@@ -570,6 +577,9 @@ export default function Dashboard() {
               correctionNotifications={correctionNotifications}
               onAcceptCorrection={handleAcceptCorrectionNotification}
               onDismissCorrection={handleDismissCorrectionNotification}
+              updateInfo={updateInfo}
+              onInstallUpdate={handleInstallUpdate}
+              updateStatus={updateStatus}
             />
           </div>
           <div className="relative" ref={profilePopoverRef}>
@@ -634,6 +644,9 @@ export default function Dashboard() {
               onToggleOutputExpand={toggleOutputExpand}
               onClearHistory={clearTranscriptions}
               onOpenSettings={handleOpenSettings}
+              updateInfo={updateInfo}
+              onInstallUpdate={handleInstallUpdate}
+              updateStatus={updateStatus}
             />
           )}
 

@@ -44,6 +44,9 @@ export interface HomeViewProps {
   onToggleOutputExpand: (id: string) => void;
   onClearHistory: () => void;
   onOpenSettings: (section: SettingsSectionId) => void;
+  updateInfo: { available: boolean; version?: string; body?: string } | null;
+  onInstallUpdate: () => void;
+  updateStatus: "idle" | "checking" | "installing" | "done" | "error";
 }
 
 export const HomeView = React.memo(function HomeView({
@@ -67,6 +70,9 @@ export const HomeView = React.memo(function HomeView({
   onToggleOutputExpand,
   onClearHistory,
   onOpenSettings,
+  updateInfo,
+  onInstallUpdate,
+  updateStatus,
 }: HomeViewProps) {
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState<"bottom" | "top">("bottom");
@@ -206,6 +212,27 @@ export const HomeView = React.memo(function HomeView({
             className="shrink-0 rounded-lg bg-orange-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 transition-colors"
           >
             {strings.home.openSettings}
+          </button>
+        </div>
+      )}
+
+      {updateInfo?.available && updateStatus !== "done" && (
+        <div className="mb-6 flex items-center gap-4 rounded-lg border border-sky-500/20 bg-sky-500/5 px-4 py-3">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-foreground">
+              Update available — v{updateInfo.version}
+            </p>
+            {updateInfo.body && (
+              <p className="text-xs text-muted-foreground/60 mt-0.5">{updateInfo.body}</p>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={onInstallUpdate}
+            disabled={updateStatus === "installing"}
+            className="shrink-0 rounded-lg bg-sky-500 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-600 disabled:opacity-50 transition-colors"
+          >
+            {updateStatus === "installing" ? "Installing…" : "Update now"}
           </button>
         </div>
       )}
