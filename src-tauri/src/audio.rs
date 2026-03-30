@@ -565,8 +565,8 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                     continue;
                 }
                 // VAD: Reject near-silence before sending to Whisper (prevents hallucinations)
-                // Peak < 0.002 = absolute silence. RMS < 0.003 = background noise only (no speech).
-                if peak < 0.002 || rms < 0.003 {
+                // Peak < 0.001 = absolute silence. RMS < 0.001 = background noise only (no speech).
+                if peak < 0.001 || rms < 0.001 {
                     let _ = app.emit("transcription_error", "Audio trop faible ou silence détecté. Parlez plus fort ou plus près du micro.");
                     continue;
                 }
