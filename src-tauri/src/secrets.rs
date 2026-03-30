@@ -207,7 +207,14 @@ pub fn delete_api_key() -> Result<(), String> {
 }
 
 pub fn has_api_key() -> bool {
-    get_api_key().is_ok()
+    // Check both legacy single-key store AND new multi-key store
+    if get_api_key().is_ok() {
+        return true;
+    }
+    if let Ok(config) = get_keys_config() {
+        return !config.keys.is_empty();
+    }
+    false
 }
 
 /// Invalide le cache API key (à appeler lors set/delete)
