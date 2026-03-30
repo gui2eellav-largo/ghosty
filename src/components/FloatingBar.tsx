@@ -238,7 +238,9 @@ export default function FloatingBar() {
 
   const layoutMode: FloatingLayoutMode = isMenuOpen || isMenuClosing ? "menu" : "pill";
   const showStreaming = voiceState === "processing" && streamingText.length > 0;
-  useFloatingWindowBounds(layoutMode, positionReady, centerXRef, windowYRef, clipboardToast || !!errorMessage);
+  // Whether the pill is visually expanded (hovered, recording, menu open, etc.)
+  const isExpanded = isHovered || isMenuOpen || isMenuClosing || voiceState !== "idle";
+  useFloatingWindowBounds(layoutMode, positionReady, centerXRef, windowYRef, clipboardToast || !!errorMessage, isExpanded);
 
   // Don't steal keyboard focus during recording/processing — the user's app
   // (Notes, browser, etc.) must keep focus so auto-paste (Cmd+V) lands there.
@@ -512,8 +514,7 @@ export default function FloatingBar() {
     setIsHovered(true);
   };
 
-  // Voice visible: hover sur la pill OU menu ouvert/fermeture OU enregistrement en cours
-  const isHoverOrActive = isHovered || isMenuOpen || isMenuClosing || voiceState !== "idle";
+  const isHoverOrActive = isExpanded;
   const scale = isHoverOrActive ? 1 : 0.5;
 
   // En mode menu, garder la pill dans un slot fixe (largeur contenu mode pill) pour éviter un saut si le redimensionnement natif est en retard
@@ -651,7 +652,7 @@ export default function FloatingBar() {
               className={cn(
                 "relative flex-shrink-0 flex items-center justify-center",
                 "w-[44px] h-[44px] -m-[19px]",
-                isMenuOpen ? "cursor-pointer" : "cursor-ns-resize",
+                isMenuOpen ? "cursor-pointer" : "cursor-default",
                 "transition-[transform,box-shadow] duration-200 ease-out",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:rounded-full",
               )}

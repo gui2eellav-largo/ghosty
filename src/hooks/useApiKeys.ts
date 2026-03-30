@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
 import { api } from "@/api/tauri";
-import { strings } from "@/lib/strings";
 import { getApiErrorMessage } from "@/lib/api-errors";
 
 export function useApiKeys() {
@@ -166,8 +165,6 @@ export function useApiKeys() {
 
   const handleDeleteApiKey = useCallback(
     async (keyId: string) => {
-      if (!confirm(strings.errors.deleteApiKeyConfirm)) return;
-
       try {
         await api.apiKeys.remove(keyId);
         await loadApiKeys();

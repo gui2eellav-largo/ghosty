@@ -17,6 +17,7 @@ export function useFloatingWindowBounds(
   centerXRef: MutableRefObject<number>,
   windowYRef: MutableRefObject<number>,
   showToast?: boolean,
+  isExpanded?: boolean,
 ): void {
   const lastBoundsRef = useLastBoundsRef();
 
@@ -38,7 +39,12 @@ export function useFloatingWindowBounds(
       return;
     }
 
-    const w = fw.expandedWidth + 2 * fw.bouncePadding;
+    // When pill is idle (not hovered/active), use a smaller window to minimize
+    // the invisible click-blocking area. The pill at scale 0.5 is ~43px wide,
+    // so 50px is enough. When expanded (hover/recording), use full width.
+    const fullW = fw.expandedWidth + 2 * fw.bouncePadding;
+    const idleW = Math.round(fw.expandedWidth * 0.5) + 2 * fw.bouncePadding + 4; // ~55px
+    const w = isExpanded ? fullW : idleW;
     const toastExtra = showToast ? 28 : 0;
     const h = fw.pillSize + 2 * fw.bouncePadding + toastExtra;
     const x = Math.round(centerX - w / 2);
@@ -47,5 +53,5 @@ export function useFloatingWindowBounds(
     lastBoundsRef.current = { x, y, w, h };
     invoke("set_floating_window_bounds", { x, y, width: w, height: h }).catch(console.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- lastBoundsRef is a ref, stable
-  }, [positionReady, layoutMode, centerXRef, windowYRef, showToast]);
+  }, [positionReady, layoutMode, centerXRef, windowYRef, showToast, isExpanded]);
 }
