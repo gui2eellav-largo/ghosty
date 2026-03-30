@@ -18,7 +18,7 @@ export function useApiKeys() {
   const [keyProvider, setKeyProvider] = useState<string>("openai");
   const [error, setError] = useState<string | null>(null);
 
-  const loadApiKeys = useCallback(async () => {
+  const loadApiKeys = useCallback(async (retries = 2) => {
     try {
       const keys = await api.apiKeys.getAll();
       setApiKeys(
@@ -32,6 +32,11 @@ export function useApiKeys() {
       );
       setHasApiKey(keys.length > 0);
     } catch {
+      if (retries > 0) {
+        // Keychain may be slow on app launch — retry after a short delay
+        await new Promise((r) => setTimeout(r, 1500));
+        return loadApiKeys(retries - 1);
+      }
       try {
         const hasKey = await api.apiKeys.hasKey();
         setHasApiKey(hasKey);
