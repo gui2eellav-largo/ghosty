@@ -35,7 +35,7 @@ export default function App() {
   }
 
   if (onboardingState === "loading") {
-    return <div className="fixed inset-0 bg-[#0c0c0c]" />;
+    return <div className="fixed inset-0 bg-white dark:bg-[#0c0c0c]" />;
   }
 
   if (onboardingState === "show") {
