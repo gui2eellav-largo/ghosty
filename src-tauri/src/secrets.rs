@@ -2,6 +2,7 @@
 /// Utilise le keychain macOS pour stocker les clés de manière chiffrée
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::RwLock;
 
 const SERVICE_NAME: &str = "ai.ghosty.app";
@@ -46,7 +47,12 @@ pub struct ApiKeyEntry {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeysConfig {
     pub keys: Vec<ApiKeyEntry>,
+    /// LEGACY — kept for backward-compat deserialization, migrated to active_key_ids on read
+    #[serde(default)]
     pub active_key_id: String,
+    /// Per-provider active key: provider → key_id
+    #[serde(default)]
+    pub active_key_ids: HashMap<String, String>,
 }
 
 /// Valide le format d'une clé API selon le provider
@@ -252,13 +258,25 @@ fn get_keys_config() -> Result<KeysConfig, String> {
         match get_generic_password(SERVICE_NAME, KEYS_ACCOUNT) {
             Ok(config_bytes) => {
                 let config_str = String::from_utf8_lossy(&config_bytes).to_string();
-                serde_json::from_str(&config_str).map_err(|e| format!("Erreur parsing config: {}", e))
+                let mut config: KeysConfig = serde_json::from_str(&config_str)
+                    .map_err(|e| format!("Erreur parsing config: {}", e))?;
+
+                // Migrate legacy active_key_id → active_key_ids
+                if !config.active_key_id.is_empty() && config.active_key_ids.is_empty() {
+                    if let Some(entry) = config.keys.iter().find(|k| k.id == config.active_key_id) {
+                        config.active_key_ids.insert(entry.provider.clone(), entry.id.clone());
+                    }
+                    config.active_key_id = String::new();
+                }
+
+                Ok(config)
             }
             Err(_) => {
                 // Pas de config multi-clés, retourner config vide
                 Ok(KeysConfig {
                     keys: vec![],
                     active_key_id: String::new(),
+                    active_key_ids: HashMap::new(),
                 })
             }
         }
@@ -298,6 +316,7 @@ pub fn add_api_key(name: String, provider: String, key: String) -> Result<String
     let id = format!("key_{}", uuid::Uuid::new_v4());
 
     // Ajouter nouvelle clé
+    let prov = provider.clone();
     config.keys.push(ApiKeyEntry {
         id: id.clone(),
         name,
@@ -305,9 +324,9 @@ pub fn add_api_key(name: String, provider: String, key: String) -> Result<String
         key,
     });
 
-    // Si première clé, la marquer comme active
-    if config.keys.len() == 1 {
-        config.active_key_id = id.clone();
+    // Si pas encore de clé active pour ce provider, la marquer comme active
+    if !config.active_key_ids.contains_key(&prov) {
+        config.active_key_ids.insert(prov, id.clone());
     }
 
     // Sauvegarder
@@ -332,13 +351,19 @@ pub fn remove_api_key(key_id: String) -> Result<(), String> {
     // Retirer la clé
     config.keys.retain(|k| k.id != key_id);
 
-    // Si la clé active a été supprimée, choisir une autre
-    if config.active_key_id == key_id {
-        config.active_key_id = config
-            .keys
-            .first()
-            .map(|k| k.id.clone())
-            .unwrap_or_default();
+    // Si la clé supprimée était active pour son provider, choisir une autre
+    let affected_providers: Vec<String> = config
+        .active_key_ids
+        .iter()
+        .filter(|(_, kid)| **kid == key_id)
+        .map(|(prov, _)| prov.clone())
+        .collect();
+    for prov in affected_providers {
+        let next = config.keys.iter().find(|k| k.provider == prov).map(|k| k.id.clone());
+        match next {
+            Some(next_id) => { config.active_key_ids.insert(prov, next_id); }
+            None => { config.active_key_ids.remove(&prov); }
+        }
     }
 
     // Sauvegarder
@@ -355,18 +380,18 @@ pub fn remove_api_key(_key_id: String) -> Result<(), String> {
     Err("Multi-keys disponible uniquement sur macOS".to_string())
 }
 
-/// Change la clé active
+/// Change la clé active pour le provider de cette clé
 #[cfg(target_os = "macos")]
 pub fn set_active_key(key_id: String) -> Result<(), String> {
     let mut config = get_keys_config()?;
 
-    // Vérifier que la clé existe
-    if !config.keys.iter().any(|k| k.id == key_id) {
-        return Err("Clé introuvable".to_string());
-    }
+    // Trouver la clé et son provider
+    let entry = config.keys.iter().find(|k| k.id == key_id)
+        .ok_or_else(|| "Clé introuvable".to_string())?;
+    let provider = entry.provider.clone();
 
-    // Mettre à jour
-    config.active_key_id = key_id;
+    // Mettre à jour la clé active pour ce provider
+    config.active_key_ids.insert(provider, key_id);
 
     // Sauvegarder
     save_keys_config(&config)?;
@@ -400,7 +425,7 @@ pub fn get_all_keys() -> Result<Vec<(String, String, String, bool, String)>, Str
                 k.id.clone(),
                 k.name.clone(),
                 k.provider.clone(),
-                k.id == config.active_key_id,
+                config.active_key_ids.get(&k.provider).map_or(false, |aid| aid == &k.id),
                 preview,
             )
         })
@@ -412,26 +437,25 @@ pub fn get_all_keys() -> Result<Vec<(String, String, String, bool, String)>, Str
     Err("Multi-keys disponible uniquement sur macOS".to_string())
 }
 
-/// Récupère la clé active
+/// Récupère la clé active (premier provider trouvé, ou fallback legacy)
 #[cfg(target_os = "macos")]
 pub fn get_active_key() -> Result<String, String> {
     let config = get_keys_config()?;
 
-    if config.active_key_id.is_empty() {
-        // Fallback 1: first key in multi-key store (active_key_id not set)
-        if let Some(first) = config.keys.first() {
-            return Ok(first.key.clone());
+    // Try first active key from any provider
+    for (_, kid) in &config.active_key_ids {
+        if let Some(entry) = config.keys.iter().find(|k| &k.id == kid) {
+            return Ok(entry.key.clone());
         }
-        // Fallback 2: legacy single-key store
-        return get_api_key();
     }
 
-    config
-        .keys
-        .iter()
-        .find(|k| k.id == config.active_key_id)
-        .map(|k| k.key.clone())
-        .ok_or_else(|| "Clé active introuvable".to_string())
+    // Fallback: first key in store
+    if let Some(first) = config.keys.first() {
+        return Ok(first.key.clone());
+    }
+
+    // Fallback: legacy single-key store
+    get_api_key()
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -439,16 +463,25 @@ pub fn get_active_key() -> Result<String, String> {
     get_api_key()
 }
 
-/// Get the API key for a specific provider (searches all stored keys).
-/// Falls back to the active key if no provider-specific key is found.
+/// Get the API key for a specific provider.
+/// Uses the active key for that provider, or falls back to first key for that provider.
 #[cfg(target_os = "macos")]
 pub fn get_key_for_provider(provider: &str) -> Result<String, String> {
     let config = get_keys_config()?;
-    // First try to find a key matching the requested provider
+
+    // 1. Try per-provider active key
+    if let Some(active_id) = config.active_key_ids.get(provider) {
+        if let Some(entry) = config.keys.iter().find(|k| &k.id == active_id) {
+            return Ok(entry.key.clone());
+        }
+    }
+
+    // 2. Fallback: first key matching this provider
     if let Some(entry) = config.keys.iter().find(|k| k.provider == provider) {
         return Ok(entry.key.clone());
     }
-    // Fallback to active key
+
+    // 3. Fallback: active key from any provider (backward compat)
     get_active_key()
 }
 

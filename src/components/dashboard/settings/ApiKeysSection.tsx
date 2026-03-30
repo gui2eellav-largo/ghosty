@@ -74,7 +74,6 @@ function KeyStatus({
       <span className="size-1.5 rounded-full bg-green-500 shrink-0" />
       <span className="text-xs text-muted-foreground">
         Using key <span className="font-medium text-foreground">{active.name}</span>
-        <span className="text-muted-foreground/50 ml-1 font-mono text-[10px]">({active.preview})</span>
       </span>
     </div>
   );
@@ -93,7 +92,7 @@ export function ApiKeysSection({
   onProviderChange,
   onSaveApiKey,
   onDeleteApiKey,
-  onSetActiveKey: _onSetActiveKey,
+  onSetActiveKey,
   validateApiKeyFormat,
   setValidationError,
   preferences,
@@ -101,6 +100,12 @@ export function ApiKeysSection({
 }: ApiKeysSectionProps) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  // Providers with multiple keys need radio selection
+  const providerKeyCounts = apiKeys.reduce<Record<string, number>>((acc, k) => {
+    acc[k.provider] = (acc[k.provider] ?? 0) + 1;
+    return acc;
+  }, {});
 
   const isSaving =
     apiKeySaveStatus === "validating" ||
@@ -315,57 +320,84 @@ export function ApiKeysSection({
           {/* Key list */}
           {apiKeys.length > 0 && (
             <div className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">
-              {apiKeys.map((k) => (
-                <div
-                  key={k.id}
-                  className="py-3 flex items-center justify-between gap-3"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm font-medium text-black dark:text-white truncate">
-                      {k.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground shrink-0">
-                      {PROVIDER_LABELS[k.provider] ?? k.provider}
-                    </span>
-                    <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0">
-                      {k.preview}
-                    </span>
-                  </div>
+              {apiKeys.map((k) => {
+                const hasMultiple = (providerKeyCounts[k.provider] ?? 0) > 1;
+                return (
+                  <div
+                    key={k.id}
+                    className="py-3 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {hasMultiple && (
+                        <button
+                          type="button"
+                          onClick={() => !k.isActive && onSetActiveKey(k.id)}
+                          className="shrink-0"
+                          aria-label={`Set ${k.name} as active`}
+                        >
+                          <span
+                            className={cn(
+                              "block size-3.5 rounded-full border-2 transition-colors",
+                              k.isActive
+                                ? "border-green-500 bg-green-500"
+                                : "border-muted-foreground/30 hover:border-muted-foreground/60"
+                            )}
+                          >
+                            {k.isActive && (
+                              <span className="block size-full rounded-full border-2 border-white dark:border-[#1a1a1a]" />
+                            )}
+                          </span>
+                        </button>
+                      )}
+                      {!hasMultiple && k.isActive && (
+                        <span className="size-1.5 rounded-full bg-green-500 shrink-0" />
+                      )}
+                      <span className="text-sm font-medium text-black dark:text-white truncate">
+                        {k.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {PROVIDER_LABELS[k.provider] ?? k.provider}
+                      </span>
+                      <span className="text-[10px] font-mono text-muted-foreground/40 shrink-0">
+                        {k.preview}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
-                    {pendingDeleteId === k.id ? (
-                      <>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {pendingDeleteId === k.id ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onDeleteApiKey(k.id);
+                              setPendingDeleteId(null);
+                            }}
+                            className="text-xs px-2 py-1 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 font-medium transition-colors"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingDeleteId(null)}
+                            className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
                         <button
                           type="button"
-                          onClick={() => {
-                            onDeleteApiKey(k.id);
-                            setPendingDeleteId(null);
-                          }}
-                          className="text-xs px-2 py-1 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-500/10 font-medium transition-colors"
+                          onClick={() => setPendingDeleteId(k.id)}
+                          className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                          aria-label={`Remove ${k.name} key`}
                         >
-                          Delete
+                          <Trash2 className="size-3.5" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setPendingDeleteId(null)}
-                          className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteId(k.id)}
-                        className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                        aria-label={`Remove ${k.name} key`}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
