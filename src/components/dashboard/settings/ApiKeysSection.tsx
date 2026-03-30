@@ -92,7 +92,7 @@ export function ApiKeysSection({
   onProviderChange,
   onSaveApiKey,
   onDeleteApiKey,
-  onSetActiveKey,
+  onSetActiveKey: _onSetActiveKey,
   validateApiKeyFormat,
   setValidationError,
   preferences,
@@ -350,26 +350,14 @@ export function ApiKeysSection({
                         </button>
                       </>
                     ) : (
-                      <>
-                        {!k.isActive && (
-                          <button
-                            type="button"
-                            onClick={() => onSetActiveKey(k.id)}
-                            className="text-xs px-2 py-1 rounded-lg text-muted-foreground hover:text-black dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
-                            aria-label={`Set ${k.name} as active key`}
-                          >
-                            Activate
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setPendingDeleteId(k.id)}
-                          className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                          aria-label={`Remove ${k.name} key`}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => setPendingDeleteId(k.id)}
+                        className="p-1.5 rounded-lg text-muted-foreground/50 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                        aria-label={`Remove ${k.name} key`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
                     )}
                   </div>
                 </div>
