@@ -1042,7 +1042,12 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            app.set_activation_policy(tauri::ActivationPolicy::Regular);
+
+            // Focus the main window on launch
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.set_focus();
+            }
 
             // Pre-warm microphone permission and audio worker for instant recording start
             audio::warmup_mic_permission();
