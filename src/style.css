@@ -416,3 +416,11 @@ html.floating-window body #app {
     transition: none !important;
   }
 }
+
+/* View Transition — circular reveal theme toggle */
+::view-transition-old(root) {
+  animation: none;
+}
+::view-transition-new(root) {
+  animation: none;
+}

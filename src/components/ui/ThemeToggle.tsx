@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { flushSync } from "react-dom";
 import { Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,18 +57,36 @@ export function ThemeToggle() {
     sync();
   }, [sync]);
 
-  const toggle = () => {
+  const toggle = useCallback(async (e: React.MouseEvent<HTMLButtonElement>) => {
     const next: Theme = effective === "dark" ? "light" : "dark";
-    applyTheme(next);
-    sync();
-  };
+    const doToggle = () => { applyTheme(next); sync(); };
+
+    if ("startViewTransition" in document) {
+      const { top, left, width, height } = e.currentTarget.getBoundingClientRect();
+      const x = left + width / 2;
+      const y = top + height / 2;
+      const maxRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y),
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vt = (document as any).startViewTransition(() => { flushSync(doToggle); });
+      await vt.ready;
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${maxRadius}px at ${x}px ${y}px)`] },
+        { duration: 400, easing: "ease-in-out", pseudoElement: "::view-transition-new(root)" },
+      );
+    } else {
+      doToggle();
+    }
+  }, [effective, sync]);
 
   const isDark = effective === "dark";
 
   return (
     <button
       type="button"
-      onClick={toggle}
+      onClick={(e) => toggle(e)}
       aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
         "relative flex items-center w-[52px] h-[26px] rounded-full p-[3px]",
