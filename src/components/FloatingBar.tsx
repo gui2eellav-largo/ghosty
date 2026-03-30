@@ -40,6 +40,8 @@ export default function FloatingBar() {
   const [errorFlash, setErrorFlash] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [streamingText, setStreamingText] = useState<string>("");
+  const errorFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const errorClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const monitoringIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const monitoringStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -150,6 +152,8 @@ export default function FloatingBar() {
       if (menuCloseTimeoutRef.current) clearTimeout(menuCloseTimeoutRef.current);
       if (monitoringIntervalRef.current) clearInterval(monitoringIntervalRef.current);
       if (monitoringStopRef.current) clearTimeout(monitoringStopRef.current);
+      if (errorFlashTimerRef.current) clearTimeout(errorFlashTimerRef.current);
+      if (errorClearTimerRef.current) clearTimeout(errorClearTimerRef.current);
     };
   }, []);
 
@@ -158,6 +162,11 @@ export default function FloatingBar() {
     const unlistenStarted = listen("recording_started", () => {
       setVoiceState("recording");
       setStreamingText("");
+      // Clear any lingering error state from previous recording
+      if (errorFlashTimerRef.current) clearTimeout(errorFlashTimerRef.current);
+      if (errorClearTimerRef.current) clearTimeout(errorClearTimerRef.current);
+      setErrorMessage(null);
+      setErrorFlash(false);
     });
     const unlistenStopped = listen("recording_stopped", () => setVoiceState("processing"));
     const unlistenChunk = listen<string>("llm_chunk", (event) => {
@@ -201,9 +210,10 @@ export default function FloatingBar() {
       }, 1500);
     });
     const unlistenError = listen<string>("transcription_error", (event) => {
-      setVoiceState("idle");
       setStreamingText("");
+      setVoiceState("idle");
       const msg = event.payload;
+      console.error("[transcription_error]", msg);
       const short = msg.includes("403") || msg.includes("Access denied")
         ? "Connection blocked"
         : msg.includes("timeout") || msg.includes("Timeout")
@@ -212,18 +222,34 @@ export default function FloatingBar() {
         ? "Missing Groq key"
         : msg.includes("Clé") || msg.includes("No OpenAI")
         ? "Missing API key"
-        : "Error";
-      setErrorMessage(short);
-      // Coordinate: pulse starts at 2900ms, CSS toast fades out by 3500ms,
-      // pulse lasts 600ms (ends at 3500ms). Clear both at 3500ms so window
-      // resize and pulse end happen in the same frame.
-      setTimeout(() => {
-        setErrorFlash(true);
-      }, 2900);
-      setTimeout(() => {
+        : msg.includes("trop court")
+        ? "Too short"
+        : msg.includes("trop faible") || msg.includes("silence") || msg.includes("aucun audio")
+        ? "No audio detected"
+        : msg.includes("inaudible")
+        ? "Inaudible"
+        : msg.length > 40
+        ? "Error"
+        : msg || "Error";
+
+      // Cancel previous clear timer
+      if (errorClearTimerRef.current) clearTimeout(errorClearTimerRef.current);
+
+      // Only flash on FIRST error — subsequent rapid errors just extend the timer
+      setErrorMessage((prev) => {
+        if (!prev) {
+          // First error: trigger flash
+          requestAnimationFrame(() => setErrorFlash(true));
+        }
+        return short;
+      });
+
+      // Reset clear timer — always gives 2s from the LAST error
+      errorClearTimerRef.current = setTimeout(() => {
         setErrorMessage(null);
         setErrorFlash(false);
-      }, 3500);
+        errorClearTimerRef.current = null;
+      }, 2000);
     });
 
     return () => {
@@ -238,7 +264,7 @@ export default function FloatingBar() {
 
   const layoutMode: FloatingLayoutMode = isMenuOpen || isMenuClosing ? "menu" : "pill";
   const showStreaming = voiceState === "processing" && streamingText.length > 0;
-  const isExpanded = isHovered || isMenuOpen || isMenuClosing || voiceState !== "idle";
+  const isExpanded = isHovered || isMenuOpen || isMenuClosing || voiceState !== "idle" || !!errorMessage;
   useFloatingWindowBounds(layoutMode, positionReady, centerXRef, windowYRef, clipboardToast || !!errorMessage);
 
   // Don't steal keyboard focus during recording/processing — the user's app

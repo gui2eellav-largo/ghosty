@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
 import { strings } from "@/lib/strings";
 import { SettingsSection, SettingsRow, ToggleSwitch } from "@/components/SettingsModal";
@@ -237,6 +237,41 @@ export function SystemSection({
           </div>
         )}
       </div>
+
+      {/* Diagnostics */}
+      <div className="mt-6 pt-4 border-t border-border">
+        <KeyDiagnostics />
+      </div>
     </SettingsSection>
+  );
+}
+
+function KeyDiagnostics() {
+  const [result, setResult] = useState<string | null>(null);
+
+  const run = useCallback(async () => {
+    try {
+      const diag = await api.diagnostics.keys();
+      setResult(diag);
+    } catch (e) {
+      setResult(String(e));
+    }
+  }, []);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={run}
+        className="text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors"
+      >
+        Diagnose API keys
+      </button>
+      {result && (
+        <pre className="mt-2 text-[10px] text-muted-foreground/70 bg-black/[0.03] dark:bg-white/[0.03] rounded-lg p-3 whitespace-pre-wrap font-mono leading-relaxed">
+          {result}
+        </pre>
+      )}
+    </div>
   );
 }

@@ -108,6 +108,10 @@ export const tauriApi = {
     reset: (): Promise<void> => invoke("reset_usage_stats"),
   },
 
+  diagnostics: {
+    keys: (): Promise<string> => invoke("diagnose_keys"),
+  },
+
   audio: {
     listInputDevices: (): Promise<Array<{ id: string; name: string }>> =>
       invoke("list_audio_input_devices"),

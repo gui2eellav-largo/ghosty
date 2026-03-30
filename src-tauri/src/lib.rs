@@ -613,6 +613,51 @@ fn reset_usage_stats(app: tauri::AppHandle) -> usage::UsageStats {
 }
 
 // ============================================================================
+// DIAGNOSTICS
+// ============================================================================
+
+#[tauri::command]
+fn diagnose_keys() -> String {
+    let mut lines = Vec::new();
+
+    // Check multi-key store
+    match secrets::get_all_keys() {
+        Ok(keys) => {
+            lines.push(format!("Multi-key store: {} key(s)", keys.len()));
+            for (id, name, provider, active, preview) in &keys {
+                lines.push(format!(
+                    "  - {} [{}] provider={} active={} preview={}",
+                    name, id, provider, active, preview
+                ));
+            }
+        }
+        Err(e) => lines.push(format!("Multi-key store: ERROR {}", e)),
+    }
+
+    // Check legacy key
+    match secrets::get_api_key() {
+        Ok(_) => lines.push("Legacy key: found".to_string()),
+        Err(e) => lines.push(format!("Legacy key: {}", e)),
+    }
+
+    // Check provider-specific resolution
+    for provider in &["openai", "groq"] {
+        match secrets::get_key_for_provider(provider) {
+            Ok(_) => lines.push(format!("get_key_for_provider(\"{}\"): OK", provider)),
+            Err(e) => lines.push(format!("get_key_for_provider(\"{}\"): {}", provider, e)),
+        }
+    }
+
+    // Check cached key
+    match secrets::get_api_key_cached() {
+        Ok(_) => lines.push("get_api_key_cached(): OK".to_string()),
+        Err(e) => lines.push(format!("get_api_key_cached(): {}", e)),
+    }
+
+    lines.join("\n")
+}
+
+// ============================================================================
 // PREFERENCES
 // ============================================================================
 
@@ -1380,6 +1425,7 @@ pub fn run() {
             get_all_api_keys,
             get_usage_stats,
             reset_usage_stats,
+            diagnose_keys,
             get_app_preferences,
             set_app_preferences,
             update_app_preferences,

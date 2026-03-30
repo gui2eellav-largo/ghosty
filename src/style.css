@@ -246,12 +246,12 @@ html.floating-window body #app {
     transform: translateX(-50%) translateY(6px) scale(0.95);
     filter: blur(2px);
   }
-  8% {
+  10% {
     opacity: 1;
     transform: translateX(-50%) translateY(0) scale(1);
     filter: blur(0);
   }
-  85% {
+  80% {
     opacity: 1;
     transform: translateX(-50%) translateY(0) scale(1);
     filter: blur(0);
@@ -264,7 +264,7 @@ html.floating-window body #app {
 }
 
 .animate-error-toast {
-  animation: error-toast 3.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: error-toast 2.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 @keyframes fadeIn {
