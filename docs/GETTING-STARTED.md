@@ -7,8 +7,13 @@ You just downloaded Ghosty. Here's how to go from zero to your first voice comma
 ## 1. Install and open
 
 1. Open the `.dmg` file and drag Ghosty to your Applications folder
-2. Launch Ghosty
-3. **First launch on macOS:** Right-click → Open → Confirm (required once for unsigned apps)
+2. **Important — first launch requires one Terminal command:**
+   - macOS blocks unsigned apps by default. Open **Terminal** (search "Terminal" in Spotlight) and paste:
+   ```
+   xattr -cr /Applications/Ghosty.app
+   ```
+   - Press Enter. You only need to do this once.
+3. Launch Ghosty from your Applications folder
 4. Grant **microphone access** when prompted (System Settings > Privacy > Microphone)
 
 ## 2. Set up your API key
