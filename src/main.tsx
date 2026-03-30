@@ -10,8 +10,15 @@ if (label === "floating") {
   document.body.classList.add("floating-window");
 }
 
-if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-  document.documentElement.classList.add('dark');
+// Apply stored theme preference, fallback to system preference
+const storedTheme = (() => {
+  try { return localStorage.getItem("ghosty-theme"); } catch { return null; }
+})();
+const shouldBeDark =
+  storedTheme === "dark" ||
+  (storedTheme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+if (shouldBeDark) {
+  document.documentElement.classList.add("dark");
 }
 
 const root = document.getElementById("app");

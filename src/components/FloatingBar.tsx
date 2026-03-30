@@ -88,7 +88,7 @@ export default function FloatingBar() {
       setOnboardingDone(true);
       windowRef.current.show().catch(() => {});
     });
-    return () => { unlisten.then(u => { try { u(); } catch {} }).catch(() => {}); };
+    return () => { unlisten.then(u => { try { u(); } catch { /* already removed */ } }).catch(() => {}); };
   }, []);
 
   useEffect(() => {
@@ -208,16 +208,16 @@ export default function FloatingBar() {
         ? "Missing API key"
         : "Error";
       setErrorMessage(short);
-      // 3.5s = CSS animation duration. Pill pulse at the end masks the height shrink.
+      // Coordinate: pulse starts at 2900ms, CSS toast fades out by 3500ms,
+      // pulse lasts 600ms (ends at 3500ms). Clear both at 3500ms so window
+      // resize and pulse end happen in the same frame.
       setTimeout(() => {
         setErrorFlash(true);
-      }, 3200);
+      }, 2900);
       setTimeout(() => {
         setErrorMessage(null);
-      }, 3500);
-      setTimeout(() => {
         setErrorFlash(false);
-      }, 3800);
+      }, 3500);
     });
 
     return () => {
@@ -444,14 +444,18 @@ export default function FloatingBar() {
   const handleModeSelect = (mode: ModeConfig) => {
     setSelectedMode(mode.id as Mode);
     setSelectedModeConfig(mode);
-    setIsMenuOpen(false);
-    setIsHovered(false);
+    // Close menu via closing animation (same path as handleDotClick) to avoid
+    // race between manual invoke and useFloatingWindowBounds hook.
+    setIsMenuClosing(true);
+    if (menuCloseTimeoutRef.current) clearTimeout(menuCloseTimeoutRef.current);
+    menuCloseTimeoutRef.current = setTimeout(() => {
+      menuCloseCooldownRef.current = Date.now();
+      menuCloseTimeoutRef.current = null;
+      setIsMenuOpen(false);
+      setIsMenuClosing(false);
+      setIsHovered(false);
+    }, 220);
     api.modes.setActivePrompt(mode.systemPrompt, mode.id).catch(console.error);
-    // Force pill bounds immediately — the layoutEffect may race with the menu unmount
-    const w = fw.expandedWidth + 2 * fw.bouncePadding;
-    const h = fw.pillSize + 2 * fw.bouncePadding;
-    const x = Math.round(centerXRef.current - w / 2);
-    invoke("set_floating_window_bounds", { x, y: windowYRef.current, width: w, height: h }).catch(console.error);
   };
 
   const MENU_CLOSE_COOLDOWN_MS = 320;
@@ -469,7 +473,7 @@ export default function FloatingBar() {
         menuCloseTimeoutRef.current = null;
         setIsMenuOpen(false);
         setIsMenuClosing(false);
-      }, 180);
+      }, 220);
       return;
     }
     if (cooldownElapsed < MENU_CLOSE_COOLDOWN_MS) return;
@@ -561,7 +565,7 @@ export default function FloatingBar() {
               transform: `scale(${scale})`,
               transformOrigin: "top center",
               pointerEvents: "auto",
-              transition: "transform 200ms ease-out",
+              transition: "transform 200ms ease-out, background 200ms ease-out, border-color 200ms ease-out",
             }}
           >
             <div
@@ -617,7 +621,7 @@ export default function FloatingBar() {
                       setIsMenuOpen(false);
                       setIsMenuClosing(false);
                       menuCloseCooldownRef.current = Date.now();
-                    }, 180);
+                    }, 220);
                   } else if (Date.now() - menuCloseCooldownRef.current >= MENU_CLOSE_COOLDOWN_MS) {
                     setIsMenuOpen(true);
                   }

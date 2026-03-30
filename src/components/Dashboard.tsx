@@ -47,6 +47,7 @@ import {
   Zap,
   Terminal,
 } from "lucide-react";
+import { ThemeToggle } from "./ui/ThemeToggle";
 
 export default function Dashboard() {
   const modesState = useModes();
@@ -532,9 +533,12 @@ export default function Dashboard() {
             <HelpCircle size={18} className="opacity-70" />
             {strings.nav.help}
           </button>
-          <p className="text-[10px] text-muted-foreground/80 pt-2 px-3">
-            {strings.app.name} v{(packageJson as { version?: string }).version ?? "0.1.0"}
-          </p>
+          <div className="flex items-center justify-between px-3 pt-2">
+            <p className="text-[10px] text-muted-foreground/80">
+              {strings.app.name} v{(packageJson as { version?: string }).version ?? "0.1.0"}
+            </p>
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
 
