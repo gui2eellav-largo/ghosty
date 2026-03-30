@@ -29,16 +29,6 @@ export function RecordingSection({
     [updatePreferences, preferences?.recording]
   );
 
-  const handleMaxDurationChange = useCallback(
-    async (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const v = parseInt(e.target.value);
-      await updatePreferences({
-        recording: { ...preferences?.recording, maxDurationMinutes: v },
-      });
-    },
-    [updatePreferences, preferences?.recording]
-  );
-
   return (
     <SettingsSection
       title={strings.settings.recording.title}
@@ -68,26 +58,6 @@ export function RecordingSection({
           <p className="text-xs text-muted-foreground/60 mt-1.5">
             {strings.settings.recording.inputDeviceHint}
           </p>
-        </div>
-        <div>
-          <label
-            htmlFor="settings-max-duration"
-            className="block text-xs text-muted-foreground mb-1"
-          >
-            {strings.settings.recording.maxDuration}
-          </label>
-          <select
-            id="settings-max-duration"
-            value={preferences?.recording.maxDurationMinutes ?? 5}
-            onChange={handleMaxDurationChange}
-            className={cn(uiClasses.select, "py-2")}
-          >
-            {[1, 2, 5, 10].map((m) => (
-              <option key={m} value={m}>
-                {m} min
-              </option>
-            ))}
-          </select>
         </div>
       </div>
     </SettingsSection>

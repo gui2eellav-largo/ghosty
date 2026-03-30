@@ -313,12 +313,7 @@ pub fn update_preferences(
     Ok(prefs)
 }
 
-/// Max recording samples from preferences (for audio worker)
-pub fn max_recording_samples(app: &tauri::AppHandle) -> usize {
-    let prefs = get_preferences(app).unwrap_or_default();
-    let mins = prefs.recording.max_duration_minutes.clamp(1, 10);
-    (16000 * 60 * mins) as usize
-}
+// max_recording_samples removed — now computed from Whisper's 25 MB limit in audio.rs
 
 #[cfg(test)]
 mod tests {

@@ -58,9 +58,16 @@ pub fn list_input_devices() -> Result<Vec<AudioInputDevice>, String> {
     Ok(out)
 }
 
-// Défaut (2 min) pour tests; en prod on utilise preferences::max_recording_samples(app)
-#[allow(dead_code)]
-const DEFAULT_MAX_RECORDING_SAMPLES: usize = 16000 * 60 * 2;
+/// Max WAV file size for Whisper API (25 MB). We target 24 MB to leave margin.
+/// PCM 16-bit mono = 2 bytes/sample, so max_samples = 24_000_000 / 2 = 12_000_000.
+/// At 48 kHz this gives ~4 min 10s, at 16 kHz ~12 min 30s.
+const MAX_WAV_BYTES: usize = 24_000_000;
+
+/// Compute max samples based on actual device sample rate (respects Whisper's 25 MB limit).
+fn max_samples_for_rate(_sample_rate: u32) -> usize {
+    // PCM 16-bit = 2 bytes per sample → fixed limit regardless of rate
+    MAX_WAV_BYTES / 2
+}
 
 #[derive(Clone, serde::Serialize)]
 struct TranscriptionReadyPayload {
@@ -496,6 +503,7 @@ fn clear_pipeline_cancel(app: &tauri::AppHandle) {
 fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
     let mut stream_holder: Option<cpal::Stream> = None;
     let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
+    let buffer_full: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     let mut sample_rate: u32 = 16000;
 
     while let Ok(cmd) = rx.recv() {
@@ -504,13 +512,15 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                 if stream_holder.is_some() {
                     continue;
                 }
-                let max_samples = crate::preferences::max_recording_samples(&app);
+                buffer_full.store(false, Ordering::SeqCst);
+                let max_samples = max_samples_for_rate(sample_rate);
                 let device_id = crate::preferences::get_preferences(&app)
                     .ok()
                     .and_then(|p| p.recording.input_device_id.clone());
                 if let Err(e) = start_stream(
                     &mut stream_holder,
                     &buffer,
+                    &buffer_full,
                     &mut sample_rate,
                     max_samples,
                     device_id.as_deref(),
@@ -519,6 +529,24 @@ fn run_audio_worker(rx: mpsc::Receiver<AudioCommand>, app: tauri::AppHandle) {
                         state.set_capturing(false);
                     }
                     let _ = app.emit("transcription_error", e);
+                } else {
+                    // Start a watcher thread that auto-stops when buffer is full
+                    let full_flag = buffer_full.clone();
+                    let app_for_stop = app.clone();
+                    std::thread::spawn(move || {
+                        loop {
+                            std::thread::sleep(std::time::Duration::from_millis(500));
+                            if full_flag.load(Ordering::SeqCst) {
+                                #[cfg(debug_assertions)]
+                                eprintln!("[audio] buffer full — auto-stopping recording");
+                                if let Some(state) = app_for_stop.try_state::<RecorderState>() {
+                                    let _ = state.stop_capture();
+                                    let _ = app_for_stop.emit("recording_stopped", ());
+                                }
+                                break;
+                            }
+                        }
+                    });
                 }
             }
             AudioCommand::Stop => {
@@ -669,6 +697,7 @@ fn check_microphone_permission() -> Result<(), String> {
 fn start_stream(
     stream_holder: &mut Option<cpal::Stream>,
     buffer: &Arc<Mutex<Vec<f32>>>,
+    buffer_full: &Arc<AtomicBool>,
     sample_rate: &mut u32,
     max_samples: usize,
     device_id: Option<&str>,
@@ -732,6 +761,7 @@ fn start_stream(
     buffer.lock().map_err(|e| e.to_string())?.clear();
 
     let buffer_clone = buffer.clone();
+    let full_flag = buffer_full.clone();
     let err_fn = move |err: cpal::StreamError| {
         let _ = err; // consumed; logged only in debug builds
         #[cfg(debug_assertions)]
@@ -744,6 +774,7 @@ fn start_stream(
     let stream = match config.sample_format() {
         cpal::SampleFormat::F32 => {
             let b = buffer_clone.clone();
+            let ff = full_flag.clone();
             device
                 .build_input_stream(
                     &config.into(),
@@ -755,11 +786,15 @@ fn start_stream(
                                 } else if guard.len() < max_samples {
                                     let remaining = max_samples - guard.len();
                                     guard.extend_from_slice(&data[..remaining]);
+                                    ff.store(true, Ordering::SeqCst);
+                                } else {
+                                    ff.store(true, Ordering::SeqCst);
                                 }
                             } else {
                                 // Extract channel 0 from interleaved data
                                 for chunk in data.chunks(ch) {
                                     if guard.len() >= max_samples {
+                                        ff.store(true, Ordering::SeqCst);
                                         break;
                                     }
                                     guard.push(chunk[0]);
@@ -774,6 +809,7 @@ fn start_stream(
         }
         cpal::SampleFormat::I16 => {
             let b = buffer_clone.clone();
+            let ff = full_flag.clone();
             device
                 .build_input_stream(
                     &config.into(),
@@ -782,6 +818,7 @@ fn start_stream(
                             if ch <= 1 {
                                 for &s in data {
                                     if guard.len() >= max_samples {
+                                        ff.store(true, Ordering::SeqCst);
                                         break;
                                     }
                                     guard.push(f32::from_sample(s));
@@ -789,6 +826,7 @@ fn start_stream(
                             } else {
                                 for chunk in data.chunks(ch) {
                                     if guard.len() >= max_samples {
+                                        ff.store(true, Ordering::SeqCst);
                                         break;
                                     }
                                     guard.push(f32::from_sample(chunk[0]));
@@ -992,12 +1030,16 @@ mod tests {
         assert_eq!(spec.sample_format, hound::SampleFormat::Float);
     }
 
-    // ── DEFAULT_MAX_RECORDING_SAMPLES ───────────────────────────────
+    // ── MAX_WAV_BYTES / max_samples_for_rate ────────────────────────
 
     #[test]
-    fn test_max_recording_samples_constant() {
-        // 16000 Hz * 60s * 2 min = 1,920,000
-        assert_eq!(DEFAULT_MAX_RECORDING_SAMPLES, 1_920_000);
+    fn test_max_samples_for_rate() {
+        // 24 MB / 2 bytes per sample = 12,000,000 samples
+        assert_eq!(max_samples_for_rate(48000), 12_000_000);
+        assert_eq!(max_samples_for_rate(16000), 12_000_000);
+        // At 48 kHz: 12M / 48000 = 250s = 4 min 10s
+        let duration_48k = 12_000_000.0 / 48000.0;
+        assert!(duration_48k > 240.0 && duration_48k < 260.0);
     }
 
     // ── RecorderState ───────────────────────────────────────────────
