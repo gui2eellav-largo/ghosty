@@ -67,6 +67,7 @@
       "entitlements": null,
       "infoPlist": "Info.plist"
     },
+    "createUpdaterArtifacts": "v1Compatible",
     "resources": [
       "icons/*"
     ],
@@ -89,7 +90,7 @@
         "https://github.com/gui2eellav-largo/ghosty/releases/latest/download/latest.json"
       ],
       "dialog": false,
-      "pubkey": ""
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4OENBQzlGMzM2OTI1N0IKUldSN0pXa3puNnlNeUx5NlhsMEJiaEdMdkhrM01SV1lPUkgycXpSVHcrbE81SmtvM2sxSUlsSTcK"
     }
   }
 }
