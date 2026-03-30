@@ -418,7 +418,11 @@ pub fn get_active_key() -> Result<String, String> {
     let config = get_keys_config()?;
 
     if config.active_key_id.is_empty() {
-        // Fallback : ancienne méthode (compatibilité)
+        // Fallback 1: first key in multi-key store (active_key_id not set)
+        if let Some(first) = config.keys.first() {
+            return Ok(first.key.clone());
+        }
+        // Fallback 2: legacy single-key store
         return get_api_key();
     }
 

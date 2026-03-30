@@ -109,7 +109,7 @@ pub async fn transform_text_streaming(
 
     // Provider fallback: if primary was Groq, try OpenAI
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
-    if prefs.llm.provider == "groq" && crate::secrets::get_api_key_cached().is_ok() {
+    if prefs.llm.provider == "groq" && crate::secrets::get_key_for_provider("openai").or_else(|_| crate::secrets::get_api_key_cached()).is_ok() {
         #[cfg(debug_assertions)]
         eprintln!("Groq LLM failed, falling back to OpenAI: {}", primary_error);
         let _ = app.emit("provider_fallback", "Groq → OpenAI");
@@ -256,7 +256,8 @@ fn resolve_llm_config(prefs: &crate::preferences::Preferences) -> Result<(String
             Ok((key, url, model))
         }
         _ => {
-            let key = crate::secrets::get_api_key_cached()?;
+            let key = crate::secrets::get_key_for_provider("openai")
+                .or_else(|_| crate::secrets::get_api_key_cached())?;
             let url = prefs.advanced.llm_base_url
                 .as_deref()
                 .unwrap_or("https://api.openai.com")
@@ -270,7 +271,8 @@ fn resolve_llm_config(prefs: &crate::preferences::Preferences) -> Result<(String
 
 /// Resolve LLM config specifically for OpenAI fallback (ignores current provider setting).
 fn resolve_openai_fallback_config(prefs: &crate::preferences::Preferences) -> Result<(String, String, String), String> {
-    let key = crate::secrets::get_api_key_cached()?;
+    let key = crate::secrets::get_key_for_provider("openai")
+        .or_else(|_| crate::secrets::get_api_key_cached())?;
     let url = prefs.advanced.llm_base_url
         .as_deref()
         .unwrap_or("https://api.openai.com")

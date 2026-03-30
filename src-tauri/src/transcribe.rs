@@ -66,7 +66,7 @@ pub async fn transcribe_bytes(
 
     // Provider fallback: if primary was Groq, try OpenAI
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
-    if prefs.transcription.provider == "groq" && crate::secrets::get_api_key_cached().is_ok() {
+    if prefs.transcription.provider == "groq" && crate::secrets::get_key_for_provider("openai").or_else(|_| crate::secrets::get_api_key_cached()).is_ok() {
         #[cfg(debug_assertions)]
         eprintln!("Groq transcription failed, falling back to OpenAI: {}", primary_error);
         let _ = app.emit("provider_fallback", "Groq → OpenAI");
@@ -93,7 +93,8 @@ async fn transcribe_bytes_openai_fallback(
     app: &tauri::AppHandle,
 ) -> Result<String, String> {
     let prefs = crate::preferences::get_preferences(app).unwrap_or_default();
-    let api_key = crate::secrets::get_api_key_cached()?;
+    let api_key = crate::secrets::get_key_for_provider("openai")
+        .or_else(|_| crate::secrets::get_api_key_cached())?;
     let base_url = prefs.advanced.transcription_base_url
         .as_deref()
         .unwrap_or("https://api.openai.com")
@@ -184,7 +185,8 @@ async fn transcribe_bytes_internal(
         }
         _ => {
             // OpenAI (default)
-            let key = crate::secrets::get_api_key_cached()?;
+            let key = crate::secrets::get_key_for_provider("openai")
+                .or_else(|_| crate::secrets::get_api_key_cached())?;
             let url = prefs.advanced.transcription_base_url
                 .as_deref()
                 .unwrap_or("https://api.openai.com")
