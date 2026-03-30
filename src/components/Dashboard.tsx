@@ -32,7 +32,7 @@ import { GeneralSection } from "./dashboard/settings/GeneralSection";
 import { SystemSection } from "./dashboard/settings/SystemSection";
 import { ShortcutsSection } from "./dashboard/settings/ShortcutsSection";
 import { RecordingSection } from "./dashboard/settings/RecordingSection";
-import { ModelsSection } from "./dashboard/settings/ModelsSection";
+// ModelsSection merged into ApiKeysSection
 import { ApiKeysSection } from "./dashboard/settings/ApiKeysSection";
 import {
   Home,
@@ -44,7 +44,6 @@ import {
   User,
   Key,
   Keyboard,
-  Zap,
   Terminal,
 } from "lucide-react";
 import { ThemeToggle } from "./ui/ThemeToggle";
@@ -752,7 +751,6 @@ export default function Dashboard() {
                 <div className="space-y-0.5">
                   {([
                     { id: "api" as const, label: strings.settings.apiKeys.title, icon: Key },
-                    { id: "models" as const, label: strings.settings.models.title, icon: Zap },
                   ]).map((section) => (
                     <button
                       key={section.id}
@@ -843,12 +841,6 @@ export default function Dashboard() {
                 audioInputDevices={audioInputDevices}
               />
             )}
-            {activeSettingsSection === "models" && (
-              <ModelsSection
-                preferences={preferences}
-                updatePreferences={updatePreferences}
-              />
-            )}
             {activeSettingsSection === "api" && (
               <ApiKeysSection
                 apiKeys={apiKeys}
@@ -866,6 +858,8 @@ export default function Dashboard() {
                 onSetActiveKey={handleSetActiveKey}
                 validateApiKeyFormat={validateApiKeyFormat}
                 setValidationError={setValidationError}
+                preferences={preferences}
+                updatePreferences={updatePreferences}
               />
             )}
           </div>
