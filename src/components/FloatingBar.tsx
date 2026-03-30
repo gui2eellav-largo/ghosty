@@ -248,10 +248,15 @@ export default function FloatingBar() {
     keepWindowInteractive();
   }, []);
 
-  // Réaffirmer focus + non click-through après chaque changement de layout (évite flash/transparence 1 frame)
+  // Réaffirmer non click-through après chaque changement de layout.
+  // Skip setFocus during closing to avoid interrupting the animation.
   useLayoutEffect(() => {
     if (!positionReady) return;
-    keepWindowInteractive();
+    invoke('set_window_click_through', { ignore: false }).catch(console.error);
+    // Only grab focus when opening (not closing — avoids frame drop)
+    if (layoutMode === "menu") {
+      windowRef.current.setFocus().catch(() => {});
+    }
   }, [layoutMode, positionReady]);
 
   // Donner le focus à la fenêtre quand le curseur entre dans ses bounds (macOS n'envoie pas hover sinon)
@@ -479,7 +484,19 @@ export default function FloatingBar() {
     if (cooldownElapsed < MENU_CLOSE_COOLDOWN_MS) return;
     keepWindowInteractive();
     loadHasApiKey();
-    setIsMenuOpen(true);
+    // Resize window to menu size FIRST, then render menu after a frame
+    // to avoid 1-2 frame clip while invoke is in flight.
+    const w = fw.menuWidth;
+    const h = fw.menuHeight;
+    const pillW = fw.expandedWidth + 2 * fw.bouncePadding;
+    const x = Math.round(centerXRef.current - pillW / 2);
+    invoke("set_floating_window_bounds", { x, y: windowYRef.current, width: w, height: h })
+      .then(() => {
+        requestAnimationFrame(() => setIsMenuOpen(true));
+      })
+      .catch(() => {
+        setIsMenuOpen(true); // fallback: open anyway
+      });
   };
 
   // Annuler le leave timeout quand on entre dans le menu ou le pont (évite micro-resize au hover menu)

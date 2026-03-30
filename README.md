@@ -48,7 +48,10 @@ You can switch providers anytime in Settings > Models.
 
 Download the latest `.dmg` from [Releases](https://github.com/gui2eellav-largo/ghosty/releases).
 
-**First launch on macOS:** Right-click the app → Open → Confirm (required once for unsigned apps).
+**First launch on macOS:**
+1. Open Terminal and run: `xattr -cr /Applications/Ghosty.app` (required once for unsigned apps)
+2. Grant **Microphone** access when prompted
+3. Grant **Accessibility** access for auto-paste: System Settings > Privacy & Security > Accessibility > add Ghosty
 
 ### Build from source
 

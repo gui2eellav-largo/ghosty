@@ -15,6 +15,10 @@ You just downloaded Ghosty. Here's how to go from zero to your first voice comma
    - Press Enter. You only need to do this once.
 3. Launch Ghosty from your Applications folder
 4. Grant **microphone access** when prompted (System Settings > Privacy > Microphone)
+5. Grant **accessibility access** for auto-paste:
+   - Go to **System Settings > Privacy & Security > Accessibility**
+   - Click the `+` button, find and add **Ghosty**
+   - Without this, Ghosty can only copy to clipboard — it won't auto-paste into your apps
 
 ## 2. Set up your API key
 
@@ -103,6 +107,6 @@ All shortcuts can be customized in Settings > Shortcuts.
 | Nothing happens when I press the shortcut | Check microphone permission in System Settings > Privacy > Microphone |
 | "Connection blocked" error | Disable VPN — Groq blocks VPN/proxy IPs |
 | "Missing API key" error | Go to Settings > API Keys and add your key |
-| Text not pasted | Click in a text field first, then record. Ghosty pastes into the focused app |
+| Text not pasted | 1. Grant Accessibility permission (System Settings > Privacy & Security > Accessibility > add Ghosty). 2. Click in a text field first, then record |
 | Wrong language | Go to Settings > Models > Default language |
 | Word always misspelled | Add it to Dictionary with the correct spelling |

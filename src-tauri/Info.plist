@@ -4,5 +4,9 @@
 <dict>
   <key>NSMicrophoneUsageDescription</key>
   <string>Ghosty needs microphone access to record your voice for transcription.</string>
+  <key>NSAccessibilityUsageDescription</key>
+  <string>Ghosty needs accessibility access to automatically paste transcribed text into applications.</string>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>Ghosty needs permission to send commands to other applications for auto-paste.</string>
 </dict>
 </plist>
