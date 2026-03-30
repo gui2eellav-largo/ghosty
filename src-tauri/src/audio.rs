@@ -690,7 +690,13 @@ fn start_stream(
         host.devices()
             .map_err(|e| e.to_string())?
             .find(|d| d.name().ok().as_deref() == Some(id))
-            .ok_or_else(|| format!("input device not found: {}", id))?
+            .or_else(|| {
+                // Selected device not found (unplugged?) — fall back to system default
+                #[cfg(debug_assertions)]
+                eprintln!("[audio] device '{}' not found, falling back to default", id);
+                host.default_input_device()
+            })
+            .ok_or_else(|| "no input device".to_string())?
     } else {
         host.default_input_device()
             .ok_or_else(|| "no input device".to_string())?

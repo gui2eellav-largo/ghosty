@@ -228,6 +228,12 @@ export default function FloatingBar() {
         ? "No audio detected"
         : msg.includes("inaudible")
         ? "Inaudible"
+        : msg.includes("not found") || msg.includes("no input device")
+        ? "Mic not found"
+        : msg.includes("Microphone access") || msg.includes("permission")
+        ? "Mic denied"
+        : msg.includes("401") || msg.includes("Unauthorized")
+        ? "Invalid API key"
         : msg.length > 40
         ? "Error"
         : msg || "Error";
