@@ -9,3 +9,10 @@ target
 docs/internal/
 CLAUDE.md
 test.sh
+app-icon.png
+public/
+src-tauri/icons/Square*
+src-tauri/icons/StoreLogo.png
+src-tauri/icons/64x64.png
+src-tauri/icons/android/
+src-tauri/icons/ios/
