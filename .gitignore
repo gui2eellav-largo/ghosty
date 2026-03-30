@@ -4,4 +4,8 @@ dist
 target
 .DS_Store
 .cursor/
+.claude/
+.skill-archive/
 docs/internal/
+CLAUDE.md
+test.sh
