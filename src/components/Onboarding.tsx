@@ -73,6 +73,8 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-8">
         <img src="/icons/128x128.png" alt="Ghosty" className="w-10 h-10" onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
+          const mic = e.currentTarget.nextElementSibling as HTMLElement;
+          if (mic) mic.classList.remove("hidden");
         }} />
         <Mic className="w-8 h-8 text-orange-400 hidden" />
       </div>
