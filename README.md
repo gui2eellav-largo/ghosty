@@ -133,10 +133,11 @@ Typical usage (50 commands/day): **$0.30–$2.25/month** depending on provider.
 
 ## Documentation
 
-- [Quick Start](docs/QUICKSTART.md)
-- [Keyboard Shortcuts](docs/KEYBOARD-SHORTCUTS.md)
-- [Production Readiness](docs/PRODUCTION-READINESS.md)
-- [Creating a Release](docs/CREATING-A-RELEASE.md)
+- **[Getting Started](docs/GETTING-STARTED.md)** — From download to first recording in 2 minutes
+- [Quick Start (dev)](docs/QUICKSTART.md) — Install, configure, run from source
+- [Keyboard Shortcuts](docs/KEYBOARD-SHORTCUTS.md) — All shortcuts and customization
+- [Production Readiness](docs/PRODUCTION-READINESS.md) — Security, signing, distribution
+- [Creating a Release](docs/CREATING-A-RELEASE.md) — Build and publish workflow
 
 ## License
 
